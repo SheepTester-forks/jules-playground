@@ -40,4 +40,19 @@ This report details the investigation into byte-wise differences between image p
 The following scripts were used for analysis:
 - `analyze_archive1.py`: Detailed EXIF comparison for Archive 1.
 - `analyze_archive2.py`: Detailed EXIF comparison for Archive 2.
+- `analyze_img_3592.py`: Comparison script for IMG_3592 metadata and binary data.
 - `compare_binary.py`: Binary difference location and magnitude analysis.
+
+## Archive 3: IMG_3592 (Outdoor Photo)
+
+**Files:**
+- `IMG_3592.jpg` (Save to Files)
+- `IMG_3592.JPG` (Export Unmodified Originals)
+
+### Findings:
+1.  **Re-encoding:** Similar to Archive 1, "Save to Files" re-encoded the image. The filesizes differ (2.93 MB for Save to Files vs 2.92 MB for Unmodified). Binary comparison shows differences starting from the metadata header and continuing throughout the file, indicating a full re-compression.
+2.  **JFIF Header:** Both files surprisingly contain a JFIF header. Usually, camera-original JPEGs skip the JFIF marker in favor of EXIF, but iPhone 17 (per metadata) seems to include both in some cases, or the "Unmodified Original" in this instance also had it.
+3.  **Metadata Stripping:**
+    *   **Thumbnail:** The "Export Unmodified" version contains a JPEG thumbnail (approx 30KB), which is completely removed in the "Save to Files" version.
+    *   **MakerNotes:** Several Apple-specific MakerNote tags were removed or altered. Notably, Tag `0x005E` (which contains a `bplist` identifying internal camera state) is present in the unmodified version but missing in the "Save to Files" version.
+4.  **Preservation:** GPS data, Orientation, and Timestamps were preserved identically between both versions.
