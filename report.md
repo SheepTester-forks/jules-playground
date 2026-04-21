@@ -1,0 +1,43 @@
+# Analysis of Byte Differences: iPhone "Save to Files" vs "Export Unmodified Originals"
+
+This report details the investigation into byte-wise differences between image pairs extracted from two archives.
+
+## Archive 1: IMG_0108 (iMessage Photo)
+
+**Files:**
+- `IMG_0108.jpg` (Save to Files)
+- `IMG_0108 2.JPG` (Export Unmodified Originals)
+
+### Findings:
+1.  **Re-encoding:** Contrary to the expectation that these might be byte-identical, `IMG_0108.jpg` (Save to Files) appears to be a re-encoded version of the original. The filesizes differ significantly (1.72 MB vs 1.80 MB), and binary comparison shows differences throughout the file, including the image data blocks.
+2.  **Metadata Differences:**
+    *   **Orientation:** The "Export Unmodified" version has an Orientation tag of "Rotated 180", while the "Save to Files" version is "Horizontal (normal)". This indicates that "Save to Files" likely applied the rotation and re-encoded the image.
+    *   **Thumbnail:** The "Export Unmodified" version contains a JPEG thumbnail in its EXIF metadata, which is missing in the "Save to Files" version.
+    *   **GPS Data:** Both versions **contain GPS data**. The hypothesis that location was stripped in the "Save to Files" version was **not supported** by the metadata analysis; both files have identical GPS coordinates.
+3.  **Structure:** `IMG_0108.jpg` includes a JFIF header (`FFE0`), which is typical of many JPEG encoders but often omitted in camera-original EXIF-JPEGs.
+
+## Archive 2: IMG_0229 (Plane Camera Photo)
+
+**Files:**
+- `IMG_0229.HEIC` (Save to Files)
+- `IMG_0229 2.HEIC` (Export Unmodified Originals)
+
+### Findings:
+1.  **Time Zone/Offset:** The hypothesis regarding time zone adjustment was **confirmed**.
+    *   `IMG_0229.HEIC` (Save to Files) has an EXIF `OffsetTime` of `+02:00`.
+    *   `IMG_0229 2.HEIC` (Export Unmodified) has an EXIF `OffsetTime` of `-07:00`.
+    *   The `DateTimeOriginal` and `DateTimeDigitized` fields are also shifted by 9 hours (09:50:02 vs 00:50:02), reflecting the change in offset.
+2.  **Binary Differences:** The files are nearly identical in size, but binary differences are present in the metadata section (starting at offset `0x472`) and throughout the file. HEIC files often encapsulate metadata and image items in a way that shifting even a few bytes of metadata can cause offsets in the rest of the file's structure.
+
+## Summary of Hypotheses
+
+| Archive | Initial Hypothesis | Finding |
+| :--- | :--- | :--- |
+| Archive 1 | Location stripped in "Save to Files" | **Incorrect.** Location was preserved, but the image was re-encoded and orientation was baked in. |
+| Archive 2 | Time zone retroactively fixed | **Correct.** The "Save to Files" version has a different time offset and local time. |
+
+## Proof of Work
+The following scripts were used for analysis:
+- `analyze_archive1.py`: Detailed EXIF comparison for Archive 1.
+- `analyze_archive2.py`: Detailed EXIF comparison for Archive 2.
+- `compare_binary.py`: Binary difference location and magnitude analysis.
