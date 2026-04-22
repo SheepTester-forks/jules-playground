@@ -24,7 +24,7 @@ const HTML = `<!DOCTYPE html>
             margin-bottom: 5px;
             font-weight: bold;
         }
-        input[type="text"], input[type="url"], input[type="text"].url-input {
+        input[type="text"], input[type="url"] {
             width: 100%;
             padding: 12px;
             box-sizing: border-box;
@@ -50,13 +50,18 @@ const HTML = `<!DOCTYPE html>
         button:disabled {
             background-color: #ccc;
         }
-        #batch-upload-btn {
-            background-color: #28a745;
-            margin-top: 10px;
-        }
         #clear-btn {
             background-color: #6c757d;
             margin-top: 10px;
+        }
+        .checkbox-group {
+            margin-top: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .checkbox-group input {
+            width: auto;
         }
         #file-count {
             font-weight: bold;
@@ -121,7 +126,7 @@ const HTML = `<!DOCTYPE html>
 
     <div class="form-group">
         <label for="url">Target Upload URL</label>
-        <input type="text" id="url" class="url-input" placeholder="http://192.168.1.x:xxxx/upload" value="/upload">
+        <input type="url" id="url" placeholder="http://192.168.1.x:xxxx/upload" value="">
     </div>
 
     <div class="form-group">
@@ -130,8 +135,12 @@ const HTML = `<!DOCTYPE html>
         <input type="file" id="folder" webkitdirectory directory multiple>
     </div>
 
-    <button id="upload-btn">Start Sequential Upload</button>
-    <button id="batch-upload-btn">Start Batch Upload</button>
+    <div class="checkbox-group">
+        <input type="checkbox" id="sequential-mode">
+        <label for="sequential-mode">Sequential Mode (upload one by one)</label>
+    </div>
+
+    <button id="upload-btn">Start Upload</button>
     <button id="clear-btn">Clear Selection</button>
 
     <div id="progress-container">
@@ -160,7 +169,7 @@ const HTML = `<!DOCTYPE html>
         const fileLabel = document.getElementById('file-label');
         const status = document.getElementById('status');
         const log = document.getElementById('log');
-        const batchUploadBtn = document.getElementById('batch-upload-btn');
+        const sequentialModeCheckbox = document.getElementById('sequential-mode');
         const clearBtn = document.getElementById('clear-btn');
         const fileCountDisplay = document.getElementById('file-count');
 
@@ -180,7 +189,7 @@ const HTML = `<!DOCTYPE html>
 
         function setLoading(loading) {
             uploadBtn.disabled = loading;
-            batchUploadBtn.disabled = loading;
+            sequentialModeCheckbox.disabled = loading;
             clearBtn.disabled = loading;
             folderInput.disabled = loading;
             urlInput.disabled = loading;
@@ -214,35 +223,27 @@ const HTML = `<!DOCTYPE html>
                 return;
             }
 
+            const sequential = sequentialModeCheckbox.checked;
+
             setLoading(true);
             progressContainer.style.display = 'block';
-            currentFileIndex = 0;
-
             log.innerHTML = '';
-            addLog("Starting sequential upload of " + filesToUpload.length + " files...");
-            uploadNextFile();
+
+            if (sequential) {
+                currentFileIndex = 0;
+                addLog("Starting sequential upload of " + filesToUpload.length + " files...");
+                uploadNextFile();
+            } else {
+                startBatchUpload(url);
+            }
         });
 
-        batchUploadBtn.addEventListener('click', () => {
-            const url = urlInput.value;
-            if (!url) {
-                alert('Please enter a target URL');
-                return;
-            }
-
-            if (filesToUpload.length === 0) {
-                alert('Please select files first');
-                return;
-            }
-
-            setLoading(true);
-            progressContainer.style.display = 'block';
-            log.innerHTML = '';
+        function startBatchUpload(url) {
             addLog("Starting batch upload of " + filesToUpload.length + " files...");
             status.textContent = "Batch uploading " + filesToUpload.length + " files...";
 
             const formData = new FormData();
-            filesToUpload.forEach((file, index) => {
+            filesToUpload.forEach((file) => {
                 const fileName = file.webkitRelativePath || file.name;
                 formData.append('file', file, fileName);
             });
@@ -281,7 +282,7 @@ const HTML = `<!DOCTYPE html>
             };
 
             xhr.send(formData);
-        });
+        }
 
         function uploadNextFile() {
             if (currentFileIndex >= filesToUpload.length) {

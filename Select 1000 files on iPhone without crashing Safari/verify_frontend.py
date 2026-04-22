@@ -28,7 +28,6 @@ def run_verification():
 
             # Select directory
             file_input = page.locator("#folder")
-            # Creating a folder and selecting it
             if not os.path.exists("test_folder"):
                 os.makedirs("test_folder", exist_ok=True)
                 with open("test_folder/file1.txt", "w") as f: f.write("test")
@@ -37,40 +36,39 @@ def run_verification():
             file_input.set_input_files("test_folder")
             page.wait_for_timeout(1000)
 
+            # Set target URL
+            page.fill("#url", "/upload")
+            page.wait_for_timeout(500)
+
             # Verify counter
             file_count = page.locator("#file-count")
             print(f"File count text: {file_count.inner_text()}")
             page.screenshot(path="verification/screenshots/files_selected.png")
 
-            # Clear selection
-            page.click("#clear-btn")
-            page.wait_for_timeout(1000)
-            print(f"File count after clear: {file_count.inner_text()}")
-            page.screenshot(path="verification/screenshots/cleared.png")
+            # Test Batch Upload (Default mode)
+            page.click("#upload-btn")
+            page.wait_for_timeout(2000)
+            page.screenshot(path="verification/screenshots/batch_upload_done.png")
 
-            # Select files again for upload
+            # Wait for completion
+            page.wait_for_selector("text=Upload complete!", timeout=10000)
+
+            # Clear for sequential test
+            page.click("#clear-btn")
+            page.wait_for_timeout(500)
             file_input.set_input_files("test_folder")
-            page.wait_for_timeout(1000)
+            page.wait_for_timeout(500)
+
+            # Enable Sequential Mode
+            page.check("#sequential-mode")
+            page.wait_for_timeout(500)
 
             # Test Sequential Upload
             page.click("#upload-btn")
             page.wait_for_timeout(2000)
-            page.screenshot(path="verification/screenshots/sequential_upload_started.png")
-
-            # Wait for completion
-            page.wait_for_selector("text=Upload complete!", timeout=10000)
             page.screenshot(path="verification/screenshots/sequential_upload_done.png")
 
-            # Clear for batch test
-            page.click("#clear-btn")
-            page.wait_for_timeout(500)
-            file_input.set_input_files("test_folder")
-            page.wait_for_timeout(500)
-
-            # Test Batch Upload
-            page.click("#batch-upload-btn")
-            page.wait_for_timeout(2000)
-            page.screenshot(path="verification/screenshots/batch_upload_done.png")
+            page.wait_for_selector("text=Upload complete!", timeout=10000)
 
             page.wait_for_timeout(1000)
             page.screenshot(path="verification/screenshots/final_state.png")
