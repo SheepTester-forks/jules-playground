@@ -100,27 +100,15 @@ const HTML = `<!DOCTYPE html>
 </head>
 <body>
     <h1>Folder Upload</h1>
-    <p>Optimized for uploading many files on Safari/iPhone by processing them sequentially.</p>
+    <p>Optimized for uploading many files on Safari/iPhone.</p>
 
     <div class="info">
-        Files are uploaded one by one to prevent Safari from hanging or crashing.
+        Files are uploaded in one batch for efficiency.
     </div>
 
     <div class="form-group">
         <label for="url">Target Upload URL</label>
         <input type="url" id="url" placeholder="http://192.168.1.x:xxxx/upload" value="">
-    </div>
-
-    <div class="form-group">
-        <label>Upload Mode</label>
-        <div style="display: flex; gap: 20px; margin-top: 5px;">
-            <label style="font-weight: normal; display: flex; align-items: center; gap: 5px;">
-                <input type="radio" name="upload-mode" value="sequential" checked> Sequential
-            </label>
-            <label style="font-weight: normal; display: flex; align-items: center; gap: 5px;">
-                <input type="radio" name="upload-mode" value="batch"> Batch
-            </label>
-        </div>
     </div>
 
     <div class="form-group">
@@ -136,7 +124,7 @@ const HTML = `<!DOCTYPE html>
             <div id="overall-progress" class="progress-fill"></div>
         </div>
 
-        <label id="file-label">Current File Progress</label>
+        <label id="file-label">Batch Progress</label>
         <div class="progress-bar">
             <div id="file-progress" class="progress-fill"></div>
         </div>
@@ -158,18 +146,6 @@ const HTML = `<!DOCTYPE html>
         const status = document.getElementById('status');
         const log = document.getElementById('log');
 
-        let filesToUpload = [];
-        let currentFileIndex = 0;
-
-        folderInput.addEventListener('change', () => {
-            filesToUpload = Array.from(folderInput.files);
-            addLog("Selected " + filesToUpload.length + " files. Clearing input to save memory.");
-            // Clearing the input helps Safari handle large number of files
-            folderInput.value = '';
-            status.textContent = filesToUpload.length + " files selected.";
-            progressContainer.style.display = 'block';
-        });
-
         function addLog(message) {
             const entry = document.createElement('div');
             entry.textContent = "[" + new Date().toLocaleTimeString() + "] " + message;
@@ -178,42 +154,38 @@ const HTML = `<!DOCTYPE html>
 
         uploadBtn.addEventListener('click', () => {
             const url = urlInput.value;
+            const files = folderInput.files;
+
             if (!url) {
                 alert('Please enter a target URL');
                 return;
             }
 
-            if (filesToUpload.length === 0) {
+            if (files.length === 0) {
                 alert('Please select a folder with files');
                 return;
             }
-
-            const mode = document.querySelector('input[name="upload-mode"]:checked').value;
 
             uploadBtn.disabled = true;
             folderInput.disabled = true;
             urlInput.disabled = true;
             progressContainer.style.display = 'block';
-            currentFileIndex = 0;
 
             log.innerHTML = '';
-            addLog("Starting " + mode + " upload of " + filesToUpload.length + " files...");
+            addLog("Starting upload of " + files.length + " files...");
 
-            if (mode === 'batch') {
-                uploadBatch();
-            } else {
-                uploadNextFile();
-            }
+            uploadBatch();
         });
 
         function uploadBatch() {
             const url = urlInput.value;
-            status.textContent = "Uploading " + filesToUpload.length + " files in one batch...";
-            overallLabel.textContent = "Overall Progress (0/" + filesToUpload.length + ")";
-            fileLabel.textContent = "Batch Progress";
+            const files = folderInput.files;
+
+            status.textContent = "Uploading " + files.length + " files in one batch...";
+            overallLabel.textContent = "Overall Progress (0/" + files.length + ")";
 
             const formData = new FormData();
-            for (const file of filesToUpload) {
+            for (const file of files) {
                 const fileName = file.webkitRelativePath || file.name;
                 formData.append('file', file, fileName);
             }
@@ -233,13 +205,12 @@ const HTML = `<!DOCTYPE html>
                 if (xhr.status >= 200 && xhr.status < 300) {
                     addLog("Batch upload successful.");
                     status.textContent = 'Upload complete!';
-                    overallLabel.textContent = "Overall Progress (" + filesToUpload.length + "/" + filesToUpload.length + ")";
+                    overallLabel.textContent = "Overall Progress (" + files.length + "/" + files.length + ")";
                     overallProgress.style.width = '100%';
                     fileProgress.style.width = '100%';
                     uploadBtn.disabled = false;
                     folderInput.disabled = false;
                     urlInput.disabled = false;
-                    filesToUpload = []; // Clear after success
                 } else {
                     let errorMsg = "Batch upload error: " + xhr.status + " " + xhr.statusText;
                     try {
@@ -256,70 +227,6 @@ const HTML = `<!DOCTYPE html>
 
             xhr.onerror = () => {
                 addLog("Network error during batch upload.");
-                status.textContent = "Network error. Stopped.";
-                uploadBtn.disabled = false;
-                folderInput.disabled = false;
-                urlInput.disabled = false;
-            };
-
-            xhr.send(formData);
-        }
-
-        function uploadNextFile() {
-            if (currentFileIndex >= filesToUpload.length) {
-                status.textContent = 'Upload complete!';
-                overallLabel.textContent = "Overall Progress (" + filesToUpload.length + "/" + filesToUpload.length + ")";
-                addLog('All files uploaded successfully.');
-                uploadBtn.disabled = false;
-                folderInput.disabled = false;
-                urlInput.disabled = false;
-                return;
-            }
-
-            const file = filesToUpload[currentFileIndex];
-            const url = urlInput.value;
-
-            const fileName = file.webkitRelativePath || file.name;
-            status.textContent = "Uploading (" + (currentFileIndex + 1) + "/" + filesToUpload.length + "): " + fileName;
-            overallLabel.textContent = "Overall Progress (" + currentFileIndex + "/" + filesToUpload.length + ")";
-
-            const formData = new FormData();
-            formData.append('file', file, fileName);
-
-            const xhr = new XMLHttpRequest();
-            xhr.open('POST', url, true);
-
-            xhr.upload.onprogress = (e) => {
-                if (e.lengthComputable) {
-                    const percentComplete = (e.loaded / e.total) * 100;
-                    fileProgress.style.width = percentComplete + '%';
-                }
-            };
-
-            xhr.onload = () => {
-                if (xhr.status >= 200 && xhr.status < 300) {
-                    addLog("Uploaded: " + file.name);
-                    currentFileIndex++;
-                    const overallPercent = (currentFileIndex / filesToUpload.length) * 100;
-                    overallProgress.style.width = overallPercent + '%';
-                    fileProgress.style.width = '0%';
-                    uploadNextFile();
-                } else {
-                    let errorMsg = "Error uploading " + file.name + ": " + xhr.status + " " + xhr.statusText;
-                    try {
-                        const response = JSON.parse(xhr.responseText);
-                        if (response.error) errorMsg += " - " + response.error;
-                    } catch(e) {}
-                    addLog(errorMsg);
-                    status.textContent = "Error at file " + (currentFileIndex + 1) + ". Stopped.";
-                    uploadBtn.disabled = false;
-                    folderInput.disabled = false;
-                    urlInput.disabled = false;
-                }
-            };
-
-            xhr.onerror = () => {
-                addLog("Network error uploading " + file.name);
                 status.textContent = "Network error. Stopped.";
                 uploadBtn.disabled = false;
                 folderInput.disabled = false;

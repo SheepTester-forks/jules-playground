@@ -225,19 +225,9 @@
       {LIST}
     </ul>
     <form action="." method="POST" enctype="multipart/form-data" id="form">
-      <fieldset style="border-bottom: 1px solid var(--border-color); display: flex; flex-direction: column; padding: 10px; gap: 10px;">
-        <div style="display: flex; gap: 20px; font-family: var(--sans-serif); font-size: 0.9em;">
-          <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; padding: 0;">
-            <input type="radio" name="upload-mode" value="sequential" checked /> Sequential
-          </label>
-          <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; padding: 0;">
-            <input type="radio" name="upload-mode" value="batch" /> Batch
-          </label>
-        </div>
-      </fieldset>
       <fieldset>
         <label class="drop-area">
-          <input type="file" name="file" id="file" webkitdirectory directory multiple />
+          <input type="file" name="file" id="file" multiple required />
           <span
             >Drop files here or
             <span class="hover-indicator">click to select</span>.</span
@@ -249,9 +239,8 @@
     <div class="qr-codes">{QR}</div>
     <script>
       const form = document.getElementById("form");
-      const fieldsets = form.querySelectorAll("fieldset");
+      const fieldset = form.querySelector("fieldset");
       const input = document.getElementById("file");
-      let selectedFiles = [];
 
       input.addEventListener("dragover", () => {
         form.classList.add("dragover");
@@ -263,20 +252,17 @@
         form.classList.remove("dragover");
       });
       input.addEventListener("change", () => {
-        selectedFiles = Array.from(input.files);
-        input.value = ""; // Clear input to save memory in Safari
-
         while (form.lastElementChild?.tagName === "P") {
           form.lastElementChild.remove();
         }
-        for (const file of selectedFiles) {
+        for (const file of input.files) {
           form.append(
             Object.assign(document.createElement("p"), {
-              textContent: file.webkitRelativePath || file.name,
+              textContent: file.name,
             })
           );
         }
-        if (selectedFiles.length === 0) {
+        if (input.files.length === 0) {
           form.append(
             Object.assign(document.createElement("p"), {
               textContent: "No files selected.",
@@ -288,89 +274,32 @@
 
       form.addEventListener("submit", (e) => {
         e.preventDefault();
-        if (selectedFiles.length === 0) return;
-
-        const mode = form.querySelector('input[name="upload-mode"]:checked').value;
-        form.classList.add("loading");
-        fieldsets.forEach(fs => fs.disabled = true);
-
-        if (mode === "batch") {
-          uploadBatch();
-        } else {
-          uploadSequential(0);
-        }
-      });
-
-      function uploadBatch() {
-        const formData = new FormData();
-        for (const file of selectedFiles) {
-          formData.append("file", file, file.webkitRelativePath || file.name);
-        }
+        const formData = new FormData(form);
 
         const xhr = new XMLHttpRequest();
         xhr.upload.addEventListener("progress", (e) => {
-          if (e.lengthComputable) {
-            form.style.setProperty("--progress", `${(e.loaded / e.total) * 100}%`);
-          }
+          form.style.setProperty(
+            "--progress",
+            `${(e.loaded / e.total) * 100}%`
+          );
         });
         xhr.addEventListener("load", () => {
-          if (xhr.status >= 200 && xhr.status < 300) {
-            window.location = ".";
-          } else {
-            alert("Upload failed: " + xhr.status);
-            fieldsets.forEach(fs => fs.disabled = false);
-            form.classList.remove("loading");
-          }
-        });
-        xhr.addEventListener("error", () => {
-          alert("Network error during upload.");
-          fieldsets.forEach(fs => fs.disabled = false);
-          form.classList.remove("loading");
-        });
-        xhr.open("POST", ".");
-        xhr.send(formData);
-      }
-
-      function uploadSequential(index) {
-        if (index >= selectedFiles.length) {
           window.location = ".";
-          return;
-        }
-
-        const file = selectedFiles[index];
-        const formData = new FormData();
-        formData.append("file", file, file.webkitRelativePath || file.name);
-
-        const xhr = new XMLHttpRequest();
-        // Progress for sequential is a bit tricky with just one bar,
-        // we can show overall progress based on index
-        const overallBase = (index / selectedFiles.length) * 100;
-        const overallStep = 100 / selectedFiles.length;
-
-        xhr.upload.addEventListener("progress", (e) => {
-          if (e.lengthComputable) {
-            const fileProgress = (e.loaded / e.total) * overallStep;
-            form.style.setProperty("--progress", `${overallBase + fileProgress}%`);
-          }
-        });
-
-        xhr.addEventListener("load", () => {
-          if (xhr.status >= 200 && xhr.status < 300) {
-            uploadSequential(index + 1);
-          } else {
-            alert("Upload failed at file " + (index + 1) + ": " + xhr.status);
-            fieldsets.forEach(fs => fs.disabled = false);
-            form.classList.remove("loading");
-          }
+          fieldset.disabled = false;
+          form.style.setProperty("--progress", "100%");
+          form.classList.remove("loading");
         });
         xhr.addEventListener("error", () => {
-          alert("Network error at file " + (index + 1));
-          fieldsets.forEach(fs => fs.disabled = false);
+          fieldset.disabled = false;
           form.classList.remove("loading");
+          alert("Upload failed.");
         });
         xhr.open("POST", ".");
         xhr.send(formData);
-      }
+        fieldset.disabled = true;
+        form.style.setProperty("--progress", "0%");
+        form.classList.add("loading");
+      });
     </script>
   </body>
 </html>
