@@ -112,11 +112,23 @@ const HTML = `<!DOCTYPE html>
     </div>
 
     <div class="form-group">
+        <label>Upload Mode</label>
+        <div style="display: flex; gap: 20px; margin-top: 5px;">
+            <label style="font-weight: normal; display: flex; align-items: center; gap: 5px;">
+                <input type="radio" name="upload-mode" value="sequential" checked> Sequential
+            </label>
+            <label style="font-weight: normal; display: flex; align-items: center; gap: 5px;">
+                <input type="radio" name="upload-mode" value="batch"> Batch
+            </label>
+        </div>
+    </div>
+
+    <div class="form-group">
         <label for="folder">Select Folder</label>
         <input type="file" id="folder" webkitdirectory directory multiple>
     </div>
 
-    <button id="upload-btn">Start Sequential Upload</button>
+    <button id="upload-btn">Start Upload</button>
 
     <div id="progress-container">
         <label id="overall-label">Overall Progress (0/0)</label>
@@ -135,6 +147,7 @@ const HTML = `<!DOCTYPE html>
 
     <script>
         const urlInput = document.getElementById('url');
+        urlInput.value = window.location.origin + '/upload';
         const folderInput = document.getElementById('folder');
         const uploadBtn = document.getElementById('upload-btn');
         const progressContainer = document.getElementById('progress-container');
@@ -147,6 +160,15 @@ const HTML = `<!DOCTYPE html>
 
         let filesToUpload = [];
         let currentFileIndex = 0;
+
+        folderInput.addEventListener('change', () => {
+            filesToUpload = Array.from(folderInput.files);
+            addLog("Selected " + filesToUpload.length + " files. Clearing input to save memory.");
+            // Clearing the input helps Safari handle large number of files
+            folderInput.value = '';
+            status.textContent = filesToUpload.length + " files selected.";
+            progressContainer.style.display = 'block';
+        });
 
         function addLog(message) {
             const entry = document.createElement('div');
@@ -161,11 +183,12 @@ const HTML = `<!DOCTYPE html>
                 return;
             }
 
-            filesToUpload = Array.from(folderInput.files);
             if (filesToUpload.length === 0) {
                 alert('Please select a folder with files');
                 return;
             }
+
+            const mode = document.querySelector('input[name="upload-mode"]:checked').value;
 
             uploadBtn.disabled = true;
             folderInput.disabled = true;
@@ -174,9 +197,73 @@ const HTML = `<!DOCTYPE html>
             currentFileIndex = 0;
 
             log.innerHTML = '';
-            addLog("Starting upload of " + filesToUpload.length + " files...");
-            uploadNextFile();
+            addLog("Starting " + mode + " upload of " + filesToUpload.length + " files...");
+
+            if (mode === 'batch') {
+                uploadBatch();
+            } else {
+                uploadNextFile();
+            }
         });
+
+        function uploadBatch() {
+            const url = urlInput.value;
+            status.textContent = "Uploading " + filesToUpload.length + " files in one batch...";
+            overallLabel.textContent = "Overall Progress (0/" + filesToUpload.length + ")";
+            fileLabel.textContent = "Batch Progress";
+
+            const formData = new FormData();
+            for (const file of filesToUpload) {
+                const fileName = file.webkitRelativePath || file.name;
+                formData.append('file', file, fileName);
+            }
+
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', url, true);
+
+            xhr.upload.onprogress = (e) => {
+                if (e.lengthComputable) {
+                    const percentComplete = (e.loaded / e.total) * 100;
+                    overallProgress.style.width = percentComplete + '%';
+                    fileProgress.style.width = percentComplete + '%';
+                }
+            };
+
+            xhr.onload = () => {
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    addLog("Batch upload successful.");
+                    status.textContent = 'Upload complete!';
+                    overallLabel.textContent = "Overall Progress (" + filesToUpload.length + "/" + filesToUpload.length + ")";
+                    overallProgress.style.width = '100%';
+                    fileProgress.style.width = '100%';
+                    uploadBtn.disabled = false;
+                    folderInput.disabled = false;
+                    urlInput.disabled = false;
+                    filesToUpload = []; // Clear after success
+                } else {
+                    let errorMsg = "Batch upload error: " + xhr.status + " " + xhr.statusText;
+                    try {
+                        const response = JSON.parse(xhr.responseText);
+                        if (response.error) errorMsg += " - " + response.error;
+                    } catch(e) {}
+                    addLog(errorMsg);
+                    status.textContent = "Error during batch upload. Stopped.";
+                    uploadBtn.disabled = false;
+                    folderInput.disabled = false;
+                    urlInput.disabled = false;
+                }
+            };
+
+            xhr.onerror = () => {
+                addLog("Network error during batch upload.");
+                status.textContent = "Network error. Stopped.";
+                uploadBtn.disabled = false;
+                folderInput.disabled = false;
+                urlInput.disabled = false;
+            };
+
+            xhr.send(formData);
+        }
 
         function uploadNextFile() {
             if (currentFileIndex >= filesToUpload.length) {
@@ -218,7 +305,12 @@ const HTML = `<!DOCTYPE html>
                     fileProgress.style.width = '0%';
                     uploadNextFile();
                 } else {
-                    addLog("Error uploading " + file.name + ": " + xhr.status + " " + xhr.statusText);
+                    let errorMsg = "Error uploading " + file.name + ": " + xhr.status + " " + xhr.statusText;
+                    try {
+                        const response = JSON.parse(xhr.responseText);
+                        if (response.error) errorMsg += " - " + response.error;
+                    } catch(e) {}
+                    addLog(errorMsg);
                     status.textContent = "Error at file " + (currentFileIndex + 1) + ". Stopped.";
                     uploadBtn.disabled = false;
                     folderInput.disabled = false;
@@ -246,13 +338,19 @@ const server = http.createServer((req, res) => {
         res.writeHead(200, { 'Content-Type': 'text/html' });
         res.end(HTML);
     } else if (req.method === 'POST' && pathname === '/upload') {
-        let body = [];
-        req.on('data', (chunk) => body.push(chunk)).on('end', () => {
+        // Stream the request body and discard it to avoid memory issues
+        req.on('data', (chunk) => {
+            // Processing data in chunks here would be ideal for a real app
+        }).on('end', () => {
             res.writeHead(200, {
                 'Access-Control-Allow-Origin': '*',
                 'Content-Type': 'application/json'
             });
             res.end(JSON.stringify({ success: true }));
+        }).on('error', (err) => {
+            console.error('Server error during upload:', err);
+            res.writeHead(500);
+            res.end(JSON.stringify({ error: err.message }));
         });
     } else if (req.method === 'OPTIONS') {
         res.writeHead(204, {
