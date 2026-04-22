@@ -45,29 +45,12 @@ def run_verification():
             print(f"File count text: {file_count.inner_text()}")
             page.screenshot(path="verification/screenshots/files_selected.png")
 
-            # Test Batch Upload (Default mode)
+            # Test Upload (Batch mode)
             page.click("#upload-btn")
             page.wait_for_timeout(2000)
-            page.screenshot(path="verification/screenshots/batch_upload_done.png")
+            page.screenshot(path="verification/screenshots/upload_done.png")
 
             # Wait for completion
-            page.wait_for_selector("text=Upload complete!", timeout=10000)
-
-            # Clear for sequential test
-            page.click("#clear-btn")
-            page.wait_for_timeout(500)
-            file_input.set_input_files("test_folder")
-            page.wait_for_timeout(500)
-
-            # Enable Sequential Mode
-            page.check("#sequential-mode")
-            page.wait_for_timeout(500)
-
-            # Test Sequential Upload
-            page.click("#upload-btn")
-            page.wait_for_timeout(2000)
-            page.screenshot(path="verification/screenshots/sequential_upload_done.png")
-
             page.wait_for_selector("text=Upload complete!", timeout=10000)
 
             page.wait_for_timeout(1000)

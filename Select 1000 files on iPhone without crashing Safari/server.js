@@ -54,15 +54,6 @@ const HTML = `<!DOCTYPE html>
             background-color: #6c757d;
             margin-top: 10px;
         }
-        .checkbox-group {
-            margin-top: 10px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .checkbox-group input {
-            width: auto;
-        }
         #file-count {
             font-weight: bold;
             margin-bottom: 10px;
@@ -118,10 +109,10 @@ const HTML = `<!DOCTYPE html>
 </head>
 <body>
     <h1>Folder Upload</h1>
-    <p>Optimized for uploading many files on Safari/iPhone by processing them sequentially.</p>
+    <p>Optimized for uploading many files on Safari/iPhone.</p>
 
     <div class="info">
-        Files are uploaded one by one to prevent Safari from hanging or crashing.
+        Files are accumulated in a list before being uploaded in a single batch.
     </div>
 
     <div class="form-group">
@@ -133,11 +124,6 @@ const HTML = `<!DOCTYPE html>
         <label for="folder">Select Folder</label>
         <div id="file-count">0 files selected</div>
         <input type="file" id="folder" webkitdirectory directory multiple>
-    </div>
-
-    <div class="checkbox-group">
-        <input type="checkbox" id="sequential-mode">
-        <label for="sequential-mode">Sequential Mode (upload one by one)</label>
     </div>
 
     <button id="upload-btn">Start Upload</button>
@@ -169,12 +155,10 @@ const HTML = `<!DOCTYPE html>
         const fileLabel = document.getElementById('file-label');
         const status = document.getElementById('status');
         const log = document.getElementById('log');
-        const sequentialModeCheckbox = document.getElementById('sequential-mode');
         const clearBtn = document.getElementById('clear-btn');
         const fileCountDisplay = document.getElementById('file-count');
 
         let filesToUpload = [];
-        let currentFileIndex = 0;
 
         function addLog(message) {
             const entry = document.createElement('div');
@@ -189,7 +173,6 @@ const HTML = `<!DOCTYPE html>
 
         function setLoading(loading) {
             uploadBtn.disabled = loading;
-            sequentialModeCheckbox.disabled = loading;
             clearBtn.disabled = loading;
             folderInput.disabled = loading;
             urlInput.disabled = loading;
@@ -206,6 +189,9 @@ const HTML = `<!DOCTYPE html>
             const newFiles = Array.from(folderInput.files);
             if (newFiles.length > 0) {
                 filesToUpload = filesToUpload.concat(newFiles);
+                // Clear the input value immediately after copying to a JS array.
+                // This helps Safari release UI resources associated with large file lists.
+                folderInput.value = '';
                 updateUI();
                 addLog("Added " + newFiles.length + " files. Total: " + filesToUpload.length);
             }
@@ -223,22 +209,10 @@ const HTML = `<!DOCTYPE html>
                 return;
             }
 
-            const sequential = sequentialModeCheckbox.checked;
-
             setLoading(true);
             progressContainer.style.display = 'block';
             log.innerHTML = '';
 
-            if (sequential) {
-                currentFileIndex = 0;
-                addLog("Starting sequential upload of " + filesToUpload.length + " files...");
-                uploadNextFile();
-            } else {
-                startBatchUpload(url);
-            }
-        });
-
-        function startBatchUpload(url) {
             addLog("Starting batch upload of " + filesToUpload.length + " files...");
             status.textContent = "Batch uploading " + filesToUpload.length + " files...";
 
@@ -282,60 +256,7 @@ const HTML = `<!DOCTYPE html>
             };
 
             xhr.send(formData);
-        }
-
-        function uploadNextFile() {
-            if (currentFileIndex >= filesToUpload.length) {
-                status.textContent = 'Upload complete!';
-                overallLabel.textContent = "Overall Progress (" + filesToUpload.length + "/" + filesToUpload.length + ")";
-                addLog('All files uploaded successfully.');
-                setLoading(false);
-                return;
-            }
-
-            const file = filesToUpload[currentFileIndex];
-            const url = urlInput.value;
-
-            const fileName = file.webkitRelativePath || file.name;
-            status.textContent = "Uploading (" + (currentFileIndex + 1) + "/" + filesToUpload.length + "): " + fileName;
-            overallLabel.textContent = "Overall Progress (" + currentFileIndex + "/" + filesToUpload.length + ")";
-
-            const formData = new FormData();
-            formData.append('file', file, fileName);
-
-            const xhr = new XMLHttpRequest();
-            xhr.open('POST', url, true);
-
-            xhr.upload.onprogress = (e) => {
-                if (e.lengthComputable) {
-                    const percentComplete = (e.loaded / e.total) * 100;
-                    fileProgress.style.width = percentComplete + '%';
-                }
-            };
-
-            xhr.onload = () => {
-                if (xhr.status >= 200 && xhr.status < 300) {
-                    addLog("Uploaded: " + file.name);
-                    currentFileIndex++;
-                    const overallPercent = (currentFileIndex / filesToUpload.length) * 100;
-                    overallProgress.style.width = overallPercent + '%';
-                    fileProgress.style.width = '0%';
-                    uploadNextFile();
-                } else {
-                    addLog("Error uploading " + file.name + ": Status " + xhr.status + " (" + xhr.statusText + "), ReadyState " + xhr.readyState);
-                    status.textContent = "Error at file " + (currentFileIndex + 1) + ". Stopped.";
-                    setLoading(false);
-                }
-            };
-
-            xhr.onerror = () => {
-                addLog("Network error uploading " + file.name + ". Status: " + xhr.status + ", ReadyState: " + xhr.readyState);
-                status.textContent = "Network error. Stopped.";
-                setLoading(false);
-            };
-
-            xhr.send(formData);
-        }
+        });
     </script>
 </body>
 </html>`;
