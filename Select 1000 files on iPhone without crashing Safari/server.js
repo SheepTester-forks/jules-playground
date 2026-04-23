@@ -119,14 +119,9 @@ const HTML = `<!DOCTYPE html>
     <button id="upload-btn">Start Upload</button>
 
     <div id="progress-container">
-        <label id="overall-label">Overall Progress (0/0)</label>
+        <label id="overall-label">Upload Progress</label>
         <div class="progress-bar">
             <div id="overall-progress" class="progress-fill"></div>
-        </div>
-
-        <label id="file-label">Batch Progress</label>
-        <div class="progress-bar">
-            <div id="file-progress" class="progress-fill"></div>
         </div>
 
         <div id="status">Ready</div>
@@ -141,8 +136,6 @@ const HTML = `<!DOCTYPE html>
         const progressContainer = document.getElementById('progress-container');
         const overallProgress = document.getElementById('overall-progress');
         const overallLabel = document.getElementById('overall-label');
-        const fileProgress = document.getElementById('file-progress');
-        const fileLabel = document.getElementById('file-label');
         const status = document.getElementById('status');
         const log = document.getElementById('log');
 
@@ -182,7 +175,6 @@ const HTML = `<!DOCTYPE html>
             const files = folderInput.files;
 
             status.textContent = "Uploading " + files.length + " files in one batch...";
-            overallLabel.textContent = "Overall Progress (0/" + files.length + ")";
 
             const formData = new FormData();
             for (const file of files) {
@@ -197,7 +189,6 @@ const HTML = `<!DOCTYPE html>
                 if (e.lengthComputable) {
                     const percentComplete = (e.loaded / e.total) * 100;
                     overallProgress.style.width = percentComplete + '%';
-                    fileProgress.style.width = percentComplete + '%';
                 }
             };
 
@@ -205,19 +196,12 @@ const HTML = `<!DOCTYPE html>
                 if (xhr.status >= 200 && xhr.status < 300) {
                     addLog("Batch upload successful.");
                     status.textContent = 'Upload complete!';
-                    overallLabel.textContent = "Overall Progress (" + files.length + "/" + files.length + ")";
                     overallProgress.style.width = '100%';
-                    fileProgress.style.width = '100%';
                     uploadBtn.disabled = false;
                     folderInput.disabled = false;
                     urlInput.disabled = false;
                 } else {
-                    let errorMsg = "Batch upload error: " + xhr.status + " " + xhr.statusText;
-                    try {
-                        const response = JSON.parse(xhr.responseText);
-                        if (response.error) errorMsg += " - " + response.error;
-                    } catch(e) {}
-                    addLog(errorMsg);
+                    addLog("Batch upload error: " + xhr.status + " " + xhr.statusText);
                     status.textContent = "Error during batch upload. Stopped.";
                     uploadBtn.disabled = false;
                     folderInput.disabled = false;
@@ -245,19 +229,12 @@ const server = http.createServer((req, res) => {
         res.writeHead(200, { 'Content-Type': 'text/html' });
         res.end(HTML);
     } else if (req.method === 'POST' && pathname === '/upload') {
-        // Stream the request body and discard it to avoid memory issues
-        req.on('data', (chunk) => {
-            // Processing data in chunks here would be ideal for a real app
-        }).on('end', () => {
+        req.on('data', () => {}).on('end', () => {
             res.writeHead(200, {
                 'Access-Control-Allow-Origin': '*',
                 'Content-Type': 'application/json'
             });
             res.end(JSON.stringify({ success: true }));
-        }).on('error', (err) => {
-            console.error('Server error during upload:', err);
-            res.writeHead(500);
-            res.end(JSON.stringify({ error: err.message }));
         });
     } else if (req.method === 'OPTIONS') {
         res.writeHead(204, {
