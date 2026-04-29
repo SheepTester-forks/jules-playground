@@ -4,7 +4,7 @@
 
 ## Structure
 
- this repo is structured so each prompt/project is isolated in its own directory. please try to keep your work within the directory. 
+ this repo is structured so each prompt/project is isolated in its own directory. Prompts will usually involve one of the directories, so please try to keep your work within the directory. 
 
  Otherwise, the repo is yours to play around in. As proof of work, please include any temporary scripts and files you made while working rather than cleaning them up. Exception: unreasonably large files ( eg 1 Gb mock file or node modules) should be git ignored. 
 
