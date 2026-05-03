@@ -100,10 +100,10 @@ const HTML = `<!DOCTYPE html>
 </head>
 <body>
     <h1>Folder Upload</h1>
-    <p>Optimized for uploading many files on Safari/iPhone by processing them sequentially.</p>
+    <p>Optimized for uploading many files on Safari/iPhone.</p>
 
     <div class="info">
-        Files are uploaded one by one to prevent Safari from hanging or crashing.
+        Files are uploaded in one batch for efficiency.
     </div>
 
     <div class="form-group">
@@ -116,17 +116,12 @@ const HTML = `<!DOCTYPE html>
         <input type="file" id="folder" webkitdirectory directory multiple>
     </div>
 
-    <button id="upload-btn">Start Sequential Upload</button>
+    <button id="upload-btn">Start Upload</button>
 
     <div id="progress-container">
-        <label id="overall-label">Overall Progress (0/0)</label>
+        <label id="overall-label">Upload Progress</label>
         <div class="progress-bar">
             <div id="overall-progress" class="progress-fill"></div>
-        </div>
-
-        <label id="file-label">Current File Progress</label>
-        <div class="progress-bar">
-            <div id="file-progress" class="progress-fill"></div>
         </div>
 
         <div id="status">Ready</div>
@@ -135,18 +130,14 @@ const HTML = `<!DOCTYPE html>
 
     <script>
         const urlInput = document.getElementById('url');
+        urlInput.value = window.location.origin + '/upload';
         const folderInput = document.getElementById('folder');
         const uploadBtn = document.getElementById('upload-btn');
         const progressContainer = document.getElementById('progress-container');
         const overallProgress = document.getElementById('overall-progress');
         const overallLabel = document.getElementById('overall-label');
-        const fileProgress = document.getElementById('file-progress');
-        const fileLabel = document.getElementById('file-label');
         const status = document.getElementById('status');
         const log = document.getElementById('log');
-
-        let filesToUpload = [];
-        let currentFileIndex = 0;
 
         function addLog(message) {
             const entry = document.createElement('div');
@@ -156,13 +147,14 @@ const HTML = `<!DOCTYPE html>
 
         uploadBtn.addEventListener('click', () => {
             const url = urlInput.value;
+            const files = folderInput.files;
+
             if (!url) {
                 alert('Please enter a target URL');
                 return;
             }
 
-            filesToUpload = Array.from(folderInput.files);
-            if (filesToUpload.length === 0) {
+            if (files.length === 0) {
                 alert('Please select a folder with files');
                 return;
             }
@@ -171,33 +163,24 @@ const HTML = `<!DOCTYPE html>
             folderInput.disabled = true;
             urlInput.disabled = true;
             progressContainer.style.display = 'block';
-            currentFileIndex = 0;
 
             log.innerHTML = '';
-            addLog("Starting upload of " + filesToUpload.length + " files...");
-            uploadNextFile();
+            addLog("Starting upload of " + files.length + " files...");
+
+            uploadBatch();
         });
 
-        function uploadNextFile() {
-            if (currentFileIndex >= filesToUpload.length) {
-                status.textContent = 'Upload complete!';
-                overallLabel.textContent = "Overall Progress (" + filesToUpload.length + "/" + filesToUpload.length + ")";
-                addLog('All files uploaded successfully.');
-                uploadBtn.disabled = false;
-                folderInput.disabled = false;
-                urlInput.disabled = false;
-                return;
-            }
-
-            const file = filesToUpload[currentFileIndex];
+        function uploadBatch() {
             const url = urlInput.value;
+            const files = folderInput.files;
 
-            const fileName = file.webkitRelativePath || file.name;
-            status.textContent = "Uploading (" + (currentFileIndex + 1) + "/" + filesToUpload.length + "): " + fileName;
-            overallLabel.textContent = "Overall Progress (" + currentFileIndex + "/" + filesToUpload.length + ")";
+            status.textContent = "Uploading " + files.length + " files in one batch...";
 
             const formData = new FormData();
-            formData.append('file', file, fileName);
+            for (const file of files) {
+                const fileName = file.webkitRelativePath || file.name;
+                formData.append('file', file, fileName);
+            }
 
             const xhr = new XMLHttpRequest();
             xhr.open('POST', url, true);
@@ -205,21 +188,21 @@ const HTML = `<!DOCTYPE html>
             xhr.upload.onprogress = (e) => {
                 if (e.lengthComputable) {
                     const percentComplete = (e.loaded / e.total) * 100;
-                    fileProgress.style.width = percentComplete + '%';
+                    overallProgress.style.width = percentComplete + '%';
                 }
             };
 
             xhr.onload = () => {
                 if (xhr.status >= 200 && xhr.status < 300) {
-                    addLog("Uploaded: " + file.name);
-                    currentFileIndex++;
-                    const overallPercent = (currentFileIndex / filesToUpload.length) * 100;
-                    overallProgress.style.width = overallPercent + '%';
-                    fileProgress.style.width = '0%';
-                    uploadNextFile();
+                    addLog("Batch upload successful.");
+                    status.textContent = 'Upload complete!';
+                    overallProgress.style.width = '100%';
+                    uploadBtn.disabled = false;
+                    folderInput.disabled = false;
+                    urlInput.disabled = false;
                 } else {
-                    addLog("Error uploading " + file.name + ": " + xhr.status + " " + xhr.statusText);
-                    status.textContent = "Error at file " + (currentFileIndex + 1) + ". Stopped.";
+                    addLog("Batch upload error: " + xhr.status + " " + xhr.statusText);
+                    status.textContent = "Error during batch upload. Stopped.";
                     uploadBtn.disabled = false;
                     folderInput.disabled = false;
                     urlInput.disabled = false;
@@ -227,7 +210,7 @@ const HTML = `<!DOCTYPE html>
             };
 
             xhr.onerror = () => {
-                addLog("Network error uploading " + file.name);
+                addLog("Network error during batch upload.");
                 status.textContent = "Network error. Stopped.";
                 uploadBtn.disabled = false;
                 folderInput.disabled = false;
@@ -246,8 +229,7 @@ const server = http.createServer((req, res) => {
         res.writeHead(200, { 'Content-Type': 'text/html' });
         res.end(HTML);
     } else if (req.method === 'POST' && pathname === '/upload') {
-        let body = [];
-        req.on('data', (chunk) => body.push(chunk)).on('end', () => {
+        req.on('data', () => {}).on('end', () => {
             res.writeHead(200, {
                 'Access-Control-Allow-Origin': '*',
                 'Content-Type': 'application/json'
