@@ -2,6 +2,7 @@ import os
 import hashlib
 import exifread
 from pillow_heif import register_heif_opener
+from PIL import Image, ImageChops
 
 register_heif_opener()
 
@@ -19,6 +20,32 @@ def get_exif(filename):
     with open(filename, 'rb') as f:
         tags = exifread.process_file(f, details=True)
     return tags
+
+def compare_pixels(f1, f2):
+    print("\nComparing pixel data...")
+    img1 = Image.open(f1)
+    img2 = Image.open(f2)
+
+    if img1.size != img2.size:
+        print(f"Dimensions differ: {img1.size} vs {img2.size}")
+        return False
+
+    if img1.mode != img2.mode:
+        print(f"Modes differ: {img1.mode} vs {img2.mode}")
+        return False
+
+    diff = ImageChops.difference(img1, img2)
+    if diff.getbbox():
+        print("Pixel data is DIFFERENT.")
+        # Find some stats about the difference
+        import numpy as np
+        d_array = np.array(diff)
+        print(f"Max pixel difference: {np.max(d_array)}")
+        print(f"Mean pixel difference: {np.mean(d_array)}")
+        return False
+    else:
+        print("Pixel data is IDENTICAL.")
+        return True
 
 def compare_files(f1, f2):
     print(f"Comparing:\n1: {f1}\n2: {f2}\n")
@@ -48,6 +75,9 @@ def compare_files(f1, f2):
         else:
             if len(chunk1) != len(chunk2):
                 print(f"No differences in common range, but sizes differ.")
+
+    # Pixel comparison
+    compare_pixels(f1, f2)
 
     # Metadata comparison
     tags1 = get_exif(f1)
