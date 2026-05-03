@@ -75,4 +75,4 @@ The following scripts were used for analysis:
 5.  **HEIF Structure & Image Data:**
     *   **Box Analysis:** Both files have a standard `ftyp` -> `meta` -> `mdat` structure, but the content of every box differs.
     *   **Pixel Data:** Comparison using Pillow confirms that **pixel data is IDENTICAL** when decoded.
-    *   **Compressed Bitstream (mdat):** Despite the identical pixels, the `mdat` boxes (which hold the compressed image data) are **different**. This indicates that "Save to Files" doesn't just swap metadata; it repacks the entire HEIF container, potentially including a different arrangement of the compressed bitstream or auxiliary items like XMP metadata within the `mdat` box.
+    *   **Compressed Bitstream (mdat):** Despite the identical pixels, the `mdat` boxes (which hold the compressed image data) are **99.62% different** in terms of byte-for-byte matching. This confirms that "Save to Files" doesn't just swap metadata; it repacks the entire HEIF container, which substantially shifts or re-encodes the compressed bitstream, even though the final decoded visual information remains unchanged.

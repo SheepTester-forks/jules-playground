@@ -36,6 +36,16 @@ def parse_boxes(data, offset=0, end=None):
         offset += size
     return boxes
 
+def get_diff_percent(d1, d2):
+    min_len = min(len(d1), len(d2))
+    diffs = 0
+    for i in range(min_len):
+        if d1[i] != d2[i]:
+            diffs += 1
+    diffs += abs(len(d1) - len(d2))
+    max_len = max(len(d1), len(d2))
+    return (diffs / max_len) * 100 if max_len > 0 else 0
+
 def compare_heic_boxes(f1, f2):
     print(f"Comparing HEIF structures:\n1: {f1}\n2: {f2}\n")
 
@@ -48,7 +58,7 @@ def compare_heic_boxes(f1, f2):
     boxes2 = parse_boxes(data2)
 
     print(f"{'Box':<10} | {'File 1 (Size)':<15} | {'File 2 (Size)':<15} | {'Data Match?'}")
-    print("-" * 65)
+    print("-" * 85)
 
     # We'll compare boxes by type and order
     max_len = max(len(boxes1), len(boxes2))
@@ -70,19 +80,8 @@ def compare_heic_boxes(f1, f2):
             else:
                 h1 = hashlib.md5(d1).hexdigest()
                 h2 = hashlib.md5(d2).hexdigest()
-                match = f"NO ({h1[:6]} vs {h2[:6]})"
-
-                if type1 == 'mdat':
-                    # Check if the smaller is a prefix of the larger
-                    min_mdat = min(len(d1), len(d2))
-                    if d1[:min_mdat] == d2[:min_mdat]:
-                        match += " (Prefix match!)"
-                    else:
-                        # Check for first diff in mdat
-                        for j in range(min_mdat):
-                            if d1[j] != d2[j]:
-                                match += f" (Diff at mdat+{j})"
-                                break
+                diff_percent = get_diff_percent(d1, d2)
+                match = f"NO ({h1[:6]} vs {h2[:6]}) - {diff_percent:.2f}% diff"
 
         print(f"{type1 if type1 == type2 else f'{type1}/{type2}':<10} | {size1:<15} | {size2:<15} | {match}")
 
