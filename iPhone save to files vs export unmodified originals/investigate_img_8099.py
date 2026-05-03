@@ -51,7 +51,7 @@ def compare_files(f1, f2):
     print(f"Comparing:\n1: {f1}\n2: {f2}\n")
 
     size1 = os.path.getsize(f1)
-    size2 = os.path.getsize(f2)
+    size2 = os.size2 = os.path.getsize(f2)
     print(f"Sizes: {size1} vs {size2} bytes")
 
     md5_1 = get_md5(f1)
@@ -90,9 +90,12 @@ def compare_files(f1, f2):
         v1 = tags1.get(key)
         v2 = tags2.get(key)
         if str(v1) != str(v2):
-            print(f"{key}:")
-            print(f"  Save to Files: {v1}")
-            print(f"  Export Unmodified: {v2}")
+            if key == 'EXIF MakerNote':
+                print(f"{key}: DIFFERENT (long byte array)")
+            else:
+                print(f"{key}:")
+                print(f"  Save to Files: {v1}")
+                print(f"  Export Unmodified: {v2}")
             diff_found = True
     if not diff_found:
         print("No metadata differences found by exifread.")

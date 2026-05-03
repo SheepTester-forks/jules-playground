@@ -72,4 +72,7 @@ The following scripts were used for analysis:
     *   **MakerNote Tag 0x005E:** Present in the unmodified version but stripped in the "Save to Files" version (consistent with Archive 3).
     *   **Tiling Metadata:** The "Save to Files" version includes `TileWidth` and `TileLength` tags which are absent in the unmodified version.
 4.  **Binary Comparison:** The files are not identical. The "Save to Files" version is slightly larger (1846170 vs 1846152 bytes). Binary differences start early at offset `0x28`.
-5.  **Pixel Data:** Comparison using Pillow confirms that **pixel data is IDENTICAL**. The differences between the two files are entirely due to metadata modifications and HEIF structure changes, not image re-encoding.
+5.  **HEIF Structure & Image Data:**
+    *   **Box Analysis:** Both files have a standard `ftyp` -> `meta` -> `mdat` structure, but the content of every box differs.
+    *   **Pixel Data:** Comparison using Pillow confirms that **pixel data is IDENTICAL** when decoded.
+    *   **Compressed Bitstream (mdat):** Despite the identical pixels, the `mdat` boxes (which hold the compressed image data) are **different**. This indicates that "Save to Files" doesn't just swap metadata; it repacks the entire HEIF container, potentially including a different arrangement of the compressed bitstream or auxiliary items like XMP metadata within the `mdat` box.
