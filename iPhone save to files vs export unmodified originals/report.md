@@ -56,3 +56,23 @@ The following scripts were used for analysis:
     *   **Thumbnail:** The "Export Unmodified" version contains a JPEG thumbnail (approx 30KB), which is completely removed in the "Save to Files" version.
     *   **MakerNotes:** Several Apple-specific MakerNote tags were removed or altered. Notably, Tag `0x005E` (which contains a `bplist` identifying internal camera state) is present in the unmodified version but missing in the "Save to Files" version.
 4.  **Preservation:** GPS data, Orientation, and Timestamps were preserved identically between both versions.
+
+## Archive 4: IMG_8099 (HEIC Photo)
+
+**Files:**
+- `save to files/IMG_8099.HEIC`
+- `export unmodified originals/IMG_8099.HEIC`
+
+### Findings:
+1.  **Time Zone/Offset:** Similar to Archive 2, the time zone was adjusted.
+    *   `save to files` version: `OffsetTime` is `-04:00`, local time is `21:40:54`.
+    *   `export unmodified` version: `OffsetTime` is `-07:00`, local time is `18:40:54`.
+2.  **Subsecond Data:** The "Save to Files" version contains `SubSecTime` (538), which is missing in the "Export Unmodified" version.
+3.  **Metadata Stripping & Addition:**
+    *   **MakerNote Tag 0x005E:** Present in the unmodified version but stripped in the "Save to Files" version (consistent with Archive 3).
+    *   **Tiling Metadata:** The "Save to Files" version includes `TileWidth` and `TileLength` tags which are absent in the unmodified version.
+4.  **Binary Comparison:** The files are not identical. The "Save to Files" version is slightly larger (1846170 vs 1846152 bytes). Binary differences start early at offset `0x28`.
+5.  **HEIF Structure & Image Data:**
+    *   **Box Analysis:** Both files have a standard `ftyp` -> `meta` -> `mdat` structure, but the content of every box differs.
+    *   **Pixel Data:** Comparison using Pillow confirms that **pixel data is IDENTICAL** when decoded.
+    *   **Compressed Bitstream (mdat):** Despite the identical pixels, the `mdat` boxes (which hold the compressed image data) are **99.62% different** in terms of byte-for-byte matching. This confirms that "Save to Files" doesn't just swap metadata; it repacks the entire HEIF container, which substantially shifts or re-encodes the compressed bitstream, even though the final decoded visual information remains unchanged.
