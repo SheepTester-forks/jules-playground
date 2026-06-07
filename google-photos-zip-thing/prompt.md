@@ -13,10 +13,16 @@ Please confirm:
 
 Deliverable:
 
-- A Node TypeScript script that I can run with
+- A Deno script that I can run with
 
   ```sh
-  node insert-name-here.ts
+  deno run --allow-read=. --allow-write=. insert-name-here.ts
   ```
 
   and will output a new zip file with the correct zip entry timings.
+
+Preferences:
+
+- Please keep all exploration scripts in Deno as well, and run them with the most restrictive permission flags.
+
+- Commit your changes after each turn
