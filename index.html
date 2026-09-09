@@ -94,18 +94,6 @@
     .project-desc {
       font-size: 0.9rem;
       color: var(--text-muted);
-      margin-bottom: 1rem;
-    }
-
-    .project-tag {
-      font-size: 0.75rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      background: rgba(56, 189, 248, 0.1);
-      color: var(--accent);
-      padding: 0.2rem 0.5rem;
-      border-radius: 4px;
-      align-self: flex-start;
     }
 
     footer {
@@ -127,7 +115,24 @@
 
   <main>
     <div class="project-grid" id="project-directory">
-      <!-- Project links defined in JS array below for easy future extension -->
+      <a class="project-card" href="iPhone save to files vs export unmodified originals/">
+        <div>
+          <div class="project-title">
+            Save to Files vs Export Unmodified Originals
+            <span>&rarr;</span>
+          </div>
+          <div class="project-desc">Interactive browser tool to analyze binary diffs, HEIF container boxes, EXIF metadata tags, and rendered pixel diffs between iPhone photo export modes.</div>
+        </div>
+      </a>
+      <a class="project-card" href="Select 1000 files on iPhone without crashing Safari/Form.html">
+        <div>
+          <div class="project-title">
+            Select 1000 Files on iPhone Safari
+            <span>&rarr;</span>
+          </div>
+          <div class="project-desc">Demonstration of batch file accumulation on iOS Safari without UI crashes or memory overflow.</div>
+        </div>
+      </a>
     </div>
   </main>
 
@@ -135,40 +140,5 @@
     <p>Deployed via GitHub Pages</p>
   </footer>
 
-  <script>
-    // Directory configuration: Add new playground tools here!
-    const PROJECTS = [
-      {
-        title: "Save to Files vs Export Unmodified Originals",
-        description: "Interactive browser tool to analyze binary diffs, HEIF container boxes, EXIF metadata tags, and rendered pixel diffs between iPhone photo export modes.",
-        path: "iPhone save to files vs export unmodified originals/index.html",
-        tag: "Interactive Tool"
-      },
-      {
-        title: "Select 1000 Files on iPhone Safari",
-        description: "Demonstration of batch file accumulation on iOS Safari without UI crashes or memory overflow.",
-        path: "Select 1000 files on iPhone without crashing Safari/Form.html",
-        tag: "iOS Safari Utility"
-      }
-    ];
-
-    const container = document.getElementById('project-directory');
-    PROJECTS.forEach(proj => {
-      const card = document.createElement('a');
-      card.className = 'project-card';
-      card.href = proj.path;
-      card.innerHTML = `
-        <div>
-          <div class="project-title">
-            ${proj.title}
-            <span>&rarr;</span>
-          </div>
-          <div class="project-desc">${proj.description}</div>
-        </div>
-        <span class="project-tag">${proj.tag}</span>
-      `;
-      container.appendChild(card);
-    });
-  </script>
 </body>
 </html>
