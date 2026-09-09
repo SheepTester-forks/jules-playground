@@ -1,0 +1,1259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>iPhone Photo Analysis: Save to Files vs Export Unmodified</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card-bg: #1e293b;
+      --card-border: #334155;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent: #38bdf8;
+      --accent-hover: #0284c7;
+      --success: #22c55e;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --code-bg: #090d16;
+      --font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: var(--font-family);
+      line-height: 1.5;
+      padding: 1rem;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    header {
+      text-align: center;
+      padding: 1.5rem 0 2rem;
+      border-bottom: 1px solid var(--card-border);
+      margin-bottom: 2rem;
+    }
+
+    header h1 {
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 0.5rem;
+    }
+
+    header p {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+    }
+
+    .nav-link {
+      display: inline-block;
+      margin-top: 0.75rem;
+      color: var(--accent);
+      text-decoration: none;
+      font-size: 0.9rem;
+    }
+    .nav-link:hover {
+      text-decoration: underline;
+    }
+
+    .upload-container {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    @media (min-width: 640px) {
+      .upload-container {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    .upload-card {
+      background: var(--card-bg);
+      border: 2px dashed var(--card-border);
+      border-radius: 12px;
+      padding: 1.25rem;
+      text-align: center;
+      transition: border-color 0.2s, background-color 0.2s;
+    }
+
+    .upload-card.has-file {
+      border-style: solid;
+      border-color: var(--accent);
+    }
+
+    .upload-card h3 {
+      font-size: 1.1rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .upload-card p {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-bottom: 1rem;
+    }
+
+    .file-input-wrapper {
+      position: relative;
+      display: inline-block;
+      width: 100%;
+    }
+
+    .file-input-wrapper input[type="file"] {
+      position: absolute;
+      left: 0;
+      top: 0;
+      opacity: 0;
+      width: 100%;
+      height: 100%;
+      cursor: pointer;
+    }
+
+    .btn {
+      background: var(--accent);
+      color: #000;
+      font-weight: 600;
+      padding: 0.6rem 1.2rem;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      display: inline-block;
+      font-size: 0.9rem;
+      transition: background 0.2s;
+      width: 100%;
+    }
+
+    .btn:hover {
+      background: var(--accent-hover);
+      color: #fff;
+    }
+
+    .btn-secondary {
+      background: #334155;
+      color: var(--text);
+      margin-top: 0.5rem;
+    }
+
+    .btn-secondary:hover {
+      background: #475569;
+    }
+
+    .sample-bar {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      margin-bottom: 2rem;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.75rem;
+      font-size: 0.85rem;
+    }
+
+    .sample-bar span {
+      color: var(--text-muted);
+    }
+
+    .sample-btn {
+      background: #334155;
+      color: var(--accent);
+      border: none;
+      padding: 0.4rem 0.8rem;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .sample-btn:hover {
+      background: #475569;
+    }
+
+    .section-title {
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin: 2rem 0 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      border-bottom: 1px solid var(--card-border);
+      padding-bottom: 0.5rem;
+    }
+
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 1.25rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 0.25rem 0.55rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .badge-success { background: rgba(34, 197, 94, 0.2); color: var(--success); }
+    .badge-warning { background: rgba(245, 158, 11, 0.2); color: var(--warning); }
+    .badge-danger { background: rgba(239, 68, 68, 0.2); color: var(--danger); }
+    .badge-info { background: rgba(56, 189, 248, 0.2); color: var(--accent); }
+
+    /* Tables */
+    .table-container {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+      text-align: left;
+    }
+
+    th, td {
+      padding: 0.6rem 0.8rem;
+      border-bottom: 1px solid var(--card-border);
+      vertical-align: top;
+    }
+
+    th {
+      background: rgba(15, 23, 42, 0.5);
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    .diff-highlight {
+      background: rgba(239, 68, 68, 0.15);
+      color: #fca5a5;
+    }
+
+    /* Hex View */
+    .hex-dump {
+      font-family: monospace;
+      font-size: 0.8rem;
+      background: var(--code-bg);
+      padding: 1rem;
+      border-radius: 8px;
+      overflow-x: auto;
+      line-height: 1.6;
+      white-space: pre;
+    }
+
+    .hex-diff {
+      color: #ef4444;
+      font-weight: bold;
+      background: rgba(239, 68, 68, 0.25);
+      padding: 1px 3px;
+      border-radius: 2px;
+    }
+
+    /* Image / Visual diff */
+    .visual-comparison {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1.5rem;
+    }
+
+    @media (min-width: 768px) {
+      .visual-comparison {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    .image-box {
+      text-align: center;
+    }
+
+    .image-box h4 {
+      font-size: 0.95rem;
+      color: var(--text-muted);
+      margin-bottom: 0.5rem;
+    }
+
+    .image-container {
+      position: relative;
+      background: var(--code-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      overflow: hidden;
+      min-height: 200px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .image-container img, .image-container canvas {
+      max-width: 100%;
+      max-height: 400px;
+      height: auto;
+      object-fit: contain;
+      display: block;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 1rem;
+    }
+
+    .summary-card {
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 1rem;
+    }
+
+    .summary-card h4 {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-bottom: 0.4rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .summary-card .val {
+      font-size: 1.1rem;
+      font-weight: 600;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>iPhone Photo Comparison Playground</h1>
+    <p>Compare <strong>"Save to Files"</strong> vs <strong>"Export Unmodified Originals"</strong> image files directly in your browser.</p>
+    <a href="../index.html" class="nav-link">&larr; Back to Playground Directory</a>
+  </header>
+
+  <main>
+    <!-- Sample Preset Bar -->
+    <div class="sample-bar">
+      <span>Quick Load Sample Files:</span>
+      <button class="sample-btn" id="load-sample-heic">Load IMG_8099.HEIC (Archive 4)</button>
+      <button class="sample-btn" id="load-sample-jpg">Load IMG_3592.JPG (Archive 3)</button>
+    </div>
+
+    <!-- Upload Section -->
+    <div class="upload-container">
+      <!-- File 1: Save to Files -->
+      <div class="upload-card" id="card-file1">
+        <h3>Save to Files</h3>
+        <p id="label-file1">Select or drop photo exported via "Save to Files"</p>
+        <div class="file-input-wrapper">
+          <button class="btn">Choose File 1</button>
+          <input type="file" id="input-file1" accept="image/*,.heic,.heif,.jpg,.jpeg,.png">
+        </div>
+      </div>
+
+      <!-- File 2: Export Unmodified Originals -->
+      <div class="upload-card" id="card-file2">
+        <h3>Export Unmodified Originals</h3>
+        <p id="label-file2">Select or drop photo exported via "Export Unmodified Originals"</p>
+        <div class="file-input-wrapper">
+          <button class="btn">Choose File 2</button>
+          <input type="file" id="input-file2" accept="image/*,.heic,.heif,.jpg,.jpeg,.png">
+        </div>
+      </div>
+    </div>
+
+    <!-- Analysis Results (Hidden until both files loaded) -->
+    <div id="results-section" class="hidden">
+
+      <!-- Automated Diagnostic Verdict -->
+      <div class="section-title">🔍 Diagnostic Verdict</div>
+      <div class="card">
+        <div id="summary-verdict-banner" style="margin-bottom: 1rem; font-size: 1.05rem; font-weight: 600;"></div>
+        <div class="summary-grid" id="summary-cards"></div>
+      </div>
+
+      <!-- File & Binary Comparison -->
+      <div class="section-title">📄 Binary File Comparison</div>
+      <div class="card">
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Property</th>
+                <th>Save to Files</th>
+                <th>Export Unmodified</th>
+                <th>Status / Diff</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-binary"></tbody>
+          </table>
+        </div>
+        <div style="margin-top: 1rem;">
+          <h4 style="font-size: 0.9rem; margin-bottom: 0.5rem; color: var(--text-muted);">First Difference Hex Preview (Offset around 1st diff byte):</h4>
+          <div class="hex-dump" id="hex-dump-view">Select two files to inspect binary difference.</div>
+        </div>
+      </div>
+
+      <!-- Container / Structure Breakdown -->
+      <div class="section-title">📦 Container Structure (HEIF / ISOBMFF / JPEG)</div>
+      <div class="card">
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">
+          Compares top-level container boxes (HEIF) or segments (JPEG) to pinpoint structural shifts or compressed media data (`mdat`) modifications.
+        </p>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Box / Segment</th>
+                <th>Save to Files (Size & SHA-256)</th>
+                <th>Export Unmodified (Size & SHA-256)</th>
+                <th>Payload Match</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-boxes"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- EXIF & Metadata Diff -->
+      <div class="section-title">🏷️ EXIF Metadata Comparison</div>
+      <div class="card">
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>EXIF Tag / Property</th>
+                <th>Save to Files</th>
+                <th>Export Unmodified</th>
+                <th>Diff Status</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-exif"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Visual & Rendered Pixel Comparison -->
+      <div class="section-title">🎨 Visual & Canvas Pixel Comparison</div>
+      <div class="card">
+        <div class="summary-grid" style="margin-bottom: 1.5rem;" id="pixel-stats"></div>
+        <div class="visual-comparison">
+          <div class="image-box">
+            <h4>Save to Files Preview</h4>
+            <div class="image-container">
+              <img id="preview-img1" alt="Save to Files Preview">
+            </div>
+          </div>
+          <div class="image-box">
+            <h4>Export Unmodified Preview</h4>
+            <div class="image-container">
+              <img id="preview-img2" alt="Export Unmodified Preview">
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top: 1.5rem;">
+          <h4 style="font-size: 0.95rem; color: var(--text-muted); margin-bottom: 0.5rem;">Difference Heatmap (Red = Rendered Pixel Difference)</h4>
+          <div class="image-container" style="max-height: 450px;">
+            <canvas id="canvas-diff"></canvas>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <script>
+    // Global state
+    const state = {
+      file1: null,
+      file2: null,
+      buf1: null,
+      buf2: null,
+      url1: null,
+      url2: null
+    };
+
+    // Elements
+    const input1 = document.getElementById('input-file1');
+    const input2 = document.getElementById('input-file2');
+    const card1 = document.getElementById('card-file1');
+    const card2 = document.getElementById('card-file2');
+    const label1 = document.getElementById('label-file1');
+    const label2 = document.getElementById('label-file2');
+    const resultsSection = document.getElementById('results-section');
+
+    // Quick Sample Loaders
+    document.getElementById('load-sample-heic').addEventListener('click', () => {
+      loadSamplePair(
+        'save to files/IMG_8099.HEIC',
+        'export unmodified originals/IMG_8099.HEIC',
+        'IMG_8099 (Save to Files).HEIC',
+        'IMG_8099 (Export Unmodified).HEIC'
+      );
+    });
+
+    document.getElementById('load-sample-jpg').addEventListener('click', () => {
+      loadSamplePair(
+        'IMG_3592.jpg',
+        'IMG_3592.JPG',
+        'IMG_3592 (Save to Files).jpg',
+        'IMG_3592 (Export Unmodified).JPG'
+      );
+    });
+
+    async function loadSamplePair(path1, path2, name1, name2) {
+      try {
+        const [res1, res2] = await Promise.all([fetch(path1), fetch(path2)]);
+        if (!res1.ok || !res2.ok) throw new Error('Failed to fetch sample files');
+        const b1 = await res1.arrayBuffer();
+        const b2 = await res2.arrayBuffer();
+
+        state.file1 = { name: name1, size: b1.byteLength, type: getMimeType(name1) };
+        state.file2 = { name: name2, size: b2.byteLength, type: getMimeType(name2) };
+        state.buf1 = b1;
+        state.buf2 = b2;
+
+        label1.textContent = `${name1} (${formatBytes(b1.byteLength)})`;
+        label2.textContent = `${name2} (${formatBytes(b2.byteLength)})`;
+        card1.classList.add('has-file');
+        card2.classList.add('has-file');
+
+        // Create Blob URLs
+        if (state.url1) URL.revokeObjectURL(state.url1);
+        if (state.url2) URL.revokeObjectURL(state.url2);
+        state.url1 = URL.createObjectURL(new Blob([b1], { type: state.file1.type }));
+        state.url2 = URL.createObjectURL(new Blob([b2], { type: state.file2.type }));
+
+        runAnalysis();
+      } catch (err) {
+        alert('Could not load sample files: ' + err.message);
+      }
+    }
+
+    function getMimeType(filename) {
+      const lower = filename.toLowerCase();
+      if (lower.endsWith('.heic') || lower.endsWith('.heif')) return 'image/heic';
+      if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg';
+      if (lower.endsWith('.png')) return 'image/png';
+      return 'application/octet-stream';
+    }
+
+    // Input change handlers (iOS Safari memory friendly: copy ArrayBuffer & clear input.value)
+    input1.addEventListener('change', async (e) => {
+      if (!e.target.files.length) return;
+      const file = e.target.files[0];
+      state.file1 = file;
+      label1.textContent = `${file.name} (${formatBytes(file.size)})`;
+      card1.classList.add('has-file');
+
+      state.buf1 = await file.arrayBuffer();
+      if (state.url1) URL.revokeObjectURL(state.url1);
+      state.url1 = URL.createObjectURL(file);
+
+      input1.value = ''; // Release iOS file input handle
+      checkAndRun();
+    });
+
+    input2.addEventListener('change', async (e) => {
+      if (!e.target.files.length) return;
+      const file = e.target.files[0];
+      state.file2 = file;
+      label2.textContent = `${file.name} (${formatBytes(file.size)})`;
+      card2.classList.add('has-file');
+
+      state.buf2 = await file.arrayBuffer();
+      if (state.url2) URL.revokeObjectURL(state.url2);
+      state.url2 = URL.createObjectURL(file);
+
+      input2.value = ''; // Release iOS file input handle
+      checkAndRun();
+    });
+
+    function checkAndRun() {
+      if (state.buf1 && state.buf2) {
+        runAnalysis();
+      }
+    }
+
+    // Main Analysis Runner
+    async function runAnalysis() {
+      resultsSection.classList.remove('hidden');
+
+      const u8_1 = new Uint8Array(state.buf1);
+      const u8_2 = new Uint8Array(state.buf2);
+
+      // 1. Binary Analysis
+      const binaryResult = await analyzeBinary(u8_1, u8_2);
+
+      // 2. ISOBMFF / HEIF Box or JPEG Marker Parsing
+      const containerResult = analyzeContainer(u8_1, u8_2);
+
+      // 3. EXIF Metadata Parsing
+      const exifResult = parseExifTags(u8_1, u8_2);
+
+      // 4. Render & Visual Pixel Comparison
+      const pixelResult = await analyzePixels();
+
+      // 5. Automated Summary Verdict
+      generateVerdict(binaryResult, containerResult, exifResult, pixelResult);
+    }
+
+    // --- 1. Binary Analysis ---
+    async function analyzeBinary(u8_1, u8_2) {
+      const size1 = u8_1.length;
+      const size2 = u8_2.length;
+      const hash1 = await computeSHA256(u8_1);
+      const hash2 = await computeSHA256(u8_2);
+
+      const isIdentical = (hash1 === hash2);
+      let firstDiff = -1;
+      let diffCount = 0;
+      const minLen = Math.min(size1, size2);
+
+      for (let i = 0; i < minLen; i++) {
+        if (u8_1[i] !== u8_2[i]) {
+          if (firstDiff === -1) firstDiff = i;
+          diffCount++;
+        }
+      }
+      diffCount += Math.abs(size1 - size2);
+      const maxLen = Math.max(size1, size2);
+      const diffPercent = maxLen > 0 ? ((diffCount / maxLen) * 100).toFixed(2) : 0;
+
+      // Render Binary Table
+      const tbody = document.getElementById('tbody-binary');
+      tbody.innerHTML = `
+        <tr>
+          <td><strong>File Size</strong></td>
+          <td>${formatBytes(size1)} (${size1.toLocaleString()} B)</td>
+          <td>${formatBytes(size2)} (${size2.toLocaleString()} B)</td>
+          <td>${size1 === size2 ? '<span class="badge badge-success">Equal</span>' : `<span class="badge badge-warning">Δ ${size1 - size2} B</span>`}</td>
+        </tr>
+        <tr>
+          <td><strong>SHA-256 Hash</strong></td>
+          <td style="font-family: monospace; font-size: 0.75rem;">${hash1.slice(0, 16)}...</td>
+          <td style="font-family: monospace; font-size: 0.75rem;">${hash2.slice(0, 16)}...</td>
+          <td>${isIdentical ? '<span class="badge badge-success">Match</span>' : '<span class="badge badge-danger">Mismatch</span>'}</td>
+        </tr>
+        <tr>
+          <td><strong>First Difference Offset</strong></td>
+          <td colspan="2">${firstDiff !== -1 ? `${firstDiff} (0x${firstDiff.toString(16).toUpperCase()})` : 'N/A (Identical)'}</td>
+          <td>${firstDiff !== -1 ? '<span class="badge badge-danger">Differ at Byte ' + firstDiff + '</span>' : '<span class="badge badge-success">Identical</span>'}</td>
+        </tr>
+        <tr>
+          <td><strong>Total Byte Differences</strong></td>
+          <td colspan="2">${diffCount.toLocaleString()} bytes differing (${diffPercent}% of file)</td>
+          <td>${diffCount === 0 ? '<span class="badge badge-success">0% Diff</span>' : `<span class="badge badge-danger">${diffPercent}% Diff</span>`}</td>
+        </tr>
+      `;
+
+      // Render Hex View around firstDiff
+      const hexView = document.getElementById('hex-dump-view');
+      if (firstDiff === -1) {
+        hexView.textContent = 'Both files are byte-for-byte identical!';
+      } else {
+        const start = Math.max(0, firstDiff - 16);
+        const end = Math.min(minLen, firstDiff + 16);
+
+        let dump1 = `Save to Files (Offset 0x${start.toString(16)}):\n`;
+        let dump2 = `Export Unmodified (Offset 0x${start.toString(16)}):\n`;
+
+        for (let i = start; i < end; i++) {
+          const hex1 = u8_1[i].toString(16).padStart(2, '0').toUpperCase();
+          const hex2 = u8_2[i].toString(16).padStart(2, '0').toUpperCase();
+
+          if (i === firstDiff) {
+            dump1 += `[${hex1}] `;
+            dump2 += `[${hex2}] `;
+          } else {
+            dump1 += `${hex1} `;
+            dump2 += `${hex2} `;
+          }
+        }
+
+        hexView.textContent = dump1 + '\n\n' + dump2;
+      }
+
+      return { size1, size2, hash1, hash2, isIdentical, firstDiff, diffCount, diffPercent };
+    }
+
+    // --- 2. Container Structure Analysis ---
+    function analyzeContainer(u8_1, u8_2) {
+      const isHeif1 = checkIsHEIF(u8_1);
+      const isHeif2 = checkIsHEIF(u8_2);
+
+      const tbody = document.getElementById('tbody-boxes');
+      tbody.innerHTML = '';
+
+      if (isHeif1 || isHeif2) {
+        const boxes1 = parseISOBMFFBoxes(u8_1);
+        const boxes2 = parseISOBMFFBoxes(u8_2);
+
+        const allTypes = Array.from(new Set([...boxes1.map(b => b.type), ...boxes2.map(b => b.type)]));
+
+        allTypes.forEach(type => {
+          const b1 = boxes1.find(b => b.type === type);
+          const b2 = boxes2.find(b => b.type === type);
+
+          const sizeStr1 = b1 ? `${b1.size} B` : 'Missing';
+          const sizeStr2 = b2 ? `${b2.size} B` : 'Missing';
+
+          let matchBadge = '<span class="badge badge-danger">Missing</span>';
+          if (b1 && b2) {
+            const data1 = u8_1.subarray(b1.dataStart, b1.dataEnd);
+            const data2 = u8_2.subarray(b2.dataStart, b2.dataEnd);
+
+            const diffPct = calculateDiffPct(data1, data2);
+            if (diffPct === 0) {
+              matchBadge = '<span class="badge badge-success">Identical Payload</span>';
+            } else {
+              matchBadge = `<span class="badge badge-warning">${diffPct}% Payload Diff</span>`;
+            }
+          }
+
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td><strong>${type}</strong></td>
+            <td>${sizeStr1}</td>
+            <td>${sizeStr2}</td>
+            <td>${matchBadge}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+
+        return { type: 'HEIF', boxes1, boxes2 };
+      } else {
+        // JPEG Segments
+        const segs1 = parseJPEGSegments(u8_1);
+        const segs2 = parseJPEGSegments(u8_2);
+
+        const allNames = Array.from(new Set([...segs1.map(s => s.name), ...segs2.map(s => s.name)]));
+
+        allNames.forEach(name => {
+          const s1 = segs1.find(s => s.name === name);
+          const s2 = segs2.find(s => s.name === name);
+
+          const sizeStr1 = s1 ? `${s1.length} B` : 'Missing';
+          const sizeStr2 = s2 ? `${s2.length} B` : 'Missing';
+
+          let matchBadge = '<span class="badge badge-danger">Missing</span>';
+          if (s1 && s2) {
+            matchBadge = s1.length === s2.length
+              ? '<span class="badge badge-success">Same Length</span>'
+              : '<span class="badge badge-warning">Length Diff</span>';
+          }
+
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td><strong>${name}</strong></td>
+            <td>${sizeStr1}</td>
+            <td>${sizeStr2}</td>
+            <td>${matchBadge}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+
+        return { type: 'JPEG', segs1, segs2 };
+      }
+    }
+
+    function checkIsHEIF(u8) {
+      if (u8.length < 12) return false;
+      const ftyp = String.fromCharCode(...u8.subarray(4, 8));
+      return ftyp === 'ftyp';
+    }
+
+    function parseISOBMFFBoxes(u8) {
+      const boxes = [];
+      let offset = 0;
+      const view = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+
+      while (offset + 8 <= u8.length) {
+        let size = view.getUint32(offset);
+        const type = String.fromCharCode(u8[offset+4], u8[offset+5], u8[offset+6], u8[offset+7]);
+        let headerSize = 8;
+
+        if (size === 1) {
+          // Extended size
+          if (offset + 16 > u8.length) break;
+          // read 64-bit int (use lower 32 bits for JS safe uint)
+          size = view.getUint32(offset + 12);
+          headerSize = 16;
+        } else if (size === 0) {
+          size = u8.length - offset;
+        }
+
+        if (size < headerSize) break;
+
+        boxes.append ? boxes.append : boxes.push({
+          type,
+          offset,
+          size,
+          dataStart: offset + headerSize,
+          dataEnd: offset + size
+        });
+
+        offset += size;
+      }
+      return boxes;
+    }
+
+    function parseJPEGSegments(u8) {
+      const segs = [];
+      if (u8[0] !== 0xFF || u8[1] !== 0xD8) return segs;
+      segs.push({ name: 'SOI (Start of Image)', length: 2 });
+
+      let offset = 2;
+      const view = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+
+      while (offset < u8.length - 1) {
+        if (u8[offset] !== 0xFF) break;
+        const marker = u8[offset + 1];
+        if (marker === 0xD9) { // EOI
+          segs.push({ name: 'EOI (End of Image)', length: 2 });
+          break;
+        }
+        if (marker === 0xDA) { // SOS
+          segs.push({ name: 'SOS (Scan Data)', length: u8.length - offset });
+          break;
+        }
+
+        if (offset + 4 > u8.length) break;
+        const len = view.getUint16(offset + 2);
+        let name = `Marker 0xFF${marker.toString(16).toUpperCase()}`;
+        if (marker === 0xE0) name = 'APP0 (JFIF Header)';
+        if (marker === 0xE1) name = 'APP1 (Exif Metadata)';
+        if (marker === 0xDB) name = 'DQT (Quantization Table)';
+        if (marker === 0xC0) name = 'SOF0 (Start of Frame)';
+        if (marker === 0xC4) name = 'DHT (Huffman Table)';
+
+        segs.push({ name, length: len + 2 });
+        offset += len + 2;
+      }
+      return segs;
+    }
+
+    function calculateDiffPct(u8_a, u8_b) {
+      const minLen = Math.min(u8_a.length, u8_b.length);
+      let diff = 0;
+      for (let i = 0; i < minLen; i++) {
+        if (u8_a[i] !== u8_b[i]) diff++;
+      }
+      diff += Math.abs(u8_a.length - u8_b.length);
+      const maxLen = Math.max(u8_a.length, u8_b.length);
+      return maxLen > 0 ? ((diff / maxLen) * 100).toFixed(2) : 0;
+    }
+
+    // --- 3. Client-side EXIF Tag Parser ---
+    function parseExifTags(u8_1, u8_2) {
+      const tags1 = extractRawExif(u8_1);
+      const tags2 = extractRawExif(u8_2);
+
+      const allKeys = Array.from(new Set([...Object.keys(tags1), ...Object.keys(tags2)])).sort();
+
+      const tbody = document.getElementById('tbody-exif');
+      tbody.innerHTML = '';
+
+      if (allKeys.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color: var(--text-muted);">No EXIF tags parsed in either file.</td></tr>';
+        return { tags1, tags2 };
+      }
+
+      allKeys.forEach(key => {
+        const v1 = tags1[key] !== undefined ? tags1[key] : undefined;
+        const v2 = tags2[key] !== undefined ? tags2[key] : undefined;
+
+        let badge = '<span class="badge badge-success">Match</span>';
+        if (v1 === undefined && v2 !== undefined) {
+          badge = '<span class="badge badge-danger">Stripped in Save to Files</span>';
+        } else if (v1 !== undefined && v2 === undefined) {
+          badge = '<span class="badge badge-info">Added in Save to Files</span>';
+        } else if (String(v1) !== String(v2)) {
+          badge = '<span class="badge badge-warning">Value Shifted</span>';
+        }
+
+        const tr = document.createElement('tr');
+        if (String(v1) !== String(v2)) tr.classList.add('diff-highlight');
+
+        tr.innerHTML = `
+          <td><strong>${key}</strong></td>
+          <td>${v1 !== undefined ? String(v1) : '<em style="color:var(--text-muted)">Missing</em>'}</td>
+          <td>${v2 !== undefined ? String(v2) : '<em style="color:var(--text-muted)">Missing</em>'}</td>
+          <td>${badge}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      return { tags1, tags2 };
+    }
+
+    function extractRawExif(u8) {
+      const tags = {};
+
+      // Locate TIFF header
+      let tiffOffset = findTiffOffset(u8);
+      if (tiffOffset === -1) return tags;
+
+      const view = new DataView(u8.buffer, u8.byteOffset + tiffOffset, u8.byteLength - tiffOffset);
+      const isLittleEndian = (view.getUint16(0) === 0x4949);
+      if (!isLittleEndian && view.getUint16(0) !== 0x4D4D) return tags;
+
+      const firstIFD = view.getUint32(4, isLittleEndian);
+
+      parseIFD(view, firstIFD, isLittleEndian, tags, tiffOffset);
+
+      return tags;
+    }
+
+    function findTiffOffset(u8) {
+      // JPEG APP1 Exif check
+      for (let i = 0; i < u8.length - 8; i++) {
+        if (u8[i] === 0x45 && u8[i+1] === 0x78 && u8[i+2] === 0x69 && u8[i+3] === 0x66 && u8[i+4] === 0x00 && u8[i+5] === 0x00) {
+          return i + 6;
+        }
+      }
+      // HEIC or RAW TIFF header search (II*\0 or MM\0*)
+      for (let i = 0; i < u8.length - 8; i++) {
+        if ((u8[i] === 0x49 && u8[i+1] === 0x49 && u8[i+2] === 0x2A && u8[i+3] === 0x00) ||
+            (u8[i] === 0x4D && u8[i+1] === 0x4D && u8[i+2] === 0x00 && u8[i+3] === 0x2A)) {
+          return i;
+        }
+      }
+      return -1;
+    }
+
+    const TAG_NAMES = {
+      0x0112: 'Orientation',
+      0x010F: 'Make',
+      0x0110: 'Model',
+      0x0131: 'Software',
+      0x0132: 'DateTime',
+      0x9003: 'DateTimeOriginal',
+      0x9004: 'DateTimeDigitized',
+      0x9010: 'OffsetTime',
+      0x9011: 'OffsetTimeOriginal',
+      0x9012: 'OffsetTimeDigitized',
+      0x9290: 'SubSecTime',
+      0x9291: 'SubSecTimeOriginal',
+      0x9292: 'SubSecTimeDigitized',
+      0x927C: 'MakerNote',
+      0x005E: 'Apple MakerNote Tag 0x005E',
+      0x0142: 'TileWidth',
+      0x0143: 'TileLength',
+      0x0201: 'JPEG Thumbnail Offset',
+      0x0202: 'JPEG Thumbnail Length'
+    };
+
+    function parseIFD(view, offset, isLE, tags, tiffOffset) {
+      if (offset <= 0 || offset + 2 > view.byteLength) return;
+      const numEntries = view.getUint16(offset, isLE);
+      let entryOffset = offset + 2;
+
+      let exifPointer = null;
+      let gpsPointer = null;
+
+      for (let i = 0; i < numEntries; i++) {
+        if (entryOffset + 12 > view.byteLength) break;
+        const tag = view.getUint16(entryOffset, isLE);
+        const type = view.getUint16(entryOffset + 2, isLE);
+        const count = view.getUint32(entryOffset + 4, isLE);
+        const valOffset = entryOffset + 8;
+
+        if (tag === 0x8769) {
+          exifPointer = view.getUint32(valOffset, isLE);
+        } else if (tag === 0x8825) {
+          gpsPointer = view.getUint32(valOffset, isLE);
+        } else if (TAG_NAMES[tag]) {
+          const val = readTagValue(view, type, count, valOffset, isLE);
+          if (tag === 0x0112) {
+            tags[TAG_NAMES[tag]] = formatOrientation(val);
+          } else {
+            tags[TAG_NAMES[tag]] = val;
+          }
+        } else if (tag === 0x927C) {
+          tags['MakerNote'] = `Present (${count} bytes)`;
+        }
+
+        entryOffset += 12;
+      }
+
+      // Read 1st IFD pointer for Thumbnail
+      if (entryOffset + 4 <= view.byteLength) {
+        const nextIFD = view.getUint32(entryOffset, isLE);
+        if (nextIFD > 0) {
+          tags['EXIF Thumbnail'] = 'Present in 1st IFD';
+        }
+      }
+
+      if (exifPointer) parseIFD(view, exifPointer, isLE, tags, tiffOffset);
+      if (gpsPointer) parseGPSIFD(view, gpsPointer, isLE, tags);
+    }
+
+    function parseGPSIFD(view, offset, isLE, tags) {
+      if (offset <= 0 || offset + 2 > view.byteLength) return;
+      const numEntries = view.getUint16(offset, isLE);
+      let entryOffset = offset + 2;
+      let hasGPS = false;
+
+      for (let i = 0; i < numEntries; i++) {
+        if (entryOffset + 12 > view.byteLength) break;
+        hasGPS = true;
+        entryOffset += 12;
+      }
+
+      if (hasGPS) {
+        tags['GPS Metadata'] = 'Present (Coordinates included)';
+      }
+    }
+
+    function readTagValue(view, type, count, valOffset, isLE) {
+      if (type === 2) { // ASCII String
+        let offset = count > 4 ? view.getUint32(valOffset, isLE) : valOffset;
+        let str = '';
+        for (let i = 0; i < count - 1; i++) {
+          if (offset + i >= view.byteLength) break;
+          const ch = view.getUint8(offset + i);
+          if (ch === 0) break;
+          str += String.fromCharCode(ch);
+        }
+        return str;
+      } else if (type === 3) { // SHORT
+        return view.getUint16(valOffset, isLE);
+      } else if (type === 4) { // LONG
+        return view.getUint32(valOffset, isLE);
+      }
+      return `[Type ${type}, Count ${count}]`;
+    }
+
+    function formatOrientation(val) {
+      switch(val) {
+        case 1: return 'Horizontal (normal) [1]';
+        case 3: return 'Rotated 180 [3]';
+        case 6: return 'Rotated 90 CW [6]';
+        case 8: return 'Rotated 270 CW [8]';
+        default: return `Custom (${val})`;
+      }
+    }
+
+    // --- 4. Rendered Pixel Comparison ---
+    async function analyzePixels() {
+      const img1 = document.getElementById('preview-img1');
+      const img2 = document.getElementById('preview-img2');
+
+      img1.src = state.url1;
+      img2.src = state.url2;
+
+      await Promise.all([
+        new Promise(res => { img1.onload = res; img1.onerror = res; }),
+        new Promise(res => { img2.onload = res; img2.onerror = res; })
+      ]);
+
+      const w1 = img1.naturalWidth || 0;
+      const h1 = img1.naturalHeight || 0;
+      const w2 = img2.naturalWidth || 0;
+      const h2 = img2.naturalHeight || 0;
+
+      const statsContainer = document.getElementById('pixel-stats');
+      const diffCanvas = document.getElementById('canvas-diff');
+
+      if (!w1 || !w2) {
+        statsContainer.innerHTML = `
+          <div class="summary-card">
+            <h4>Render Status</h4>
+            <div class="val" style="color:var(--warning)">Browser Native Decode Pending / Not Supported</div>
+            <p style="font-size:0.8rem; color:var(--text-muted); margin-top:0.4rem;">
+              Note: iOS Safari natively renders HEIC/JPEG in canvas. On non-Safari browsers, binary & HEIF box analyses above still provide full structural insights.
+            </p>
+          </div>
+        `;
+        return { isRendered: false };
+      }
+
+      // Draw onto offscreen canvas for pixel diff
+      const canvas1 = document.createElement('canvas');
+      const canvas2 = document.createElement('canvas');
+      canvas1.width = w1; canvas1.height = h1;
+      canvas2.width = w2; canvas2.height = h2;
+
+      const ctx1 = canvas1.getContext('2d');
+      const ctx2 = canvas2.getContext('2d');
+      ctx1.drawImage(img1, 0, 0);
+      ctx2.drawImage(img2, 0, 0);
+
+      const d1 = ctx1.getImageData(0, 0, w1, h1).data;
+      const d2 = ctx2.getImageData(0, 0, w2, h2).data;
+
+      // Draw Diff Canvas
+      diffCanvas.width = w1;
+      diffCanvas.height = h1;
+      const ctxDiff = diffCanvas.getContext('2d');
+      const imgDataDiff = ctxDiff.createImageData(w1, h1);
+      const dDiff = imgDataDiff.data;
+
+      let maxDiff = 0;
+      let totalDiffSum = 0;
+      let diffPixelCount = 0;
+      const totalPixels = w1 * h1;
+
+      const sameDim = (w1 === w2 && h1 === h2);
+
+      if (sameDim) {
+        for (let i = 0; i < d1.length; i += 4) {
+          const rDiff = Math.abs(d1[i] - d2[i]);
+          const gDiff = Math.abs(d1[i+1] - d2[i+1]);
+          const bDiff = Math.abs(d1[i+2] - d2[i+2]);
+          const maxChanDiff = Math.max(rDiff, gDiff, bDiff);
+
+          if (maxChanDiff > maxDiff) maxDiff = maxChanDiff;
+          totalDiffSum += (rDiff + gDiff + bDiff) / 3;
+
+          if (maxChanDiff > 0) {
+            diffPixelCount++;
+            dDiff[i] = 255;   // Red highlight
+            dDiff[i+1] = 50;
+            dDiff[i+2] = 50;
+            dDiff[i+3] = 255;
+          } else {
+            // Muted greyscale background
+            const gray = (d1[i] + d1[i+1] + d1[i+2]) / 3;
+            dDiff[i] = gray * 0.3;
+            dDiff[i+1] = gray * 0.3;
+            dDiff[i+2] = gray * 0.3;
+            dDiff[i+3] = 255;
+          }
+        }
+        ctxDiff.putImageData(imgDataDiff, 0, 0);
+      }
+
+      const meanDiff = sameDim && totalPixels > 0 ? (totalDiffSum / totalPixels).toFixed(2) : 'N/A';
+      const diffPct = sameDim && totalPixels > 0 ? ((diffPixelCount / totalPixels) * 100).toFixed(2) : 'N/A';
+      const exactPixelMatch = sameDim && diffPixelCount === 0;
+
+      statsContainer.innerHTML = `
+        <div class="summary-card">
+          <h4>Dimensions</h4>
+          <div class="val">${w1}x${h1} vs ${w2}x${h2}</div>
+        </div>
+        <div class="summary-card">
+          <h4>Pixel Data Match</h4>
+          <div class="val">${exactPixelMatch ? '<span style="color:var(--success)">100% Identical</span>' : '<span style="color:var(--danger)">Pixel Differences Found</span>'}</div>
+        </div>
+        <div class="summary-card">
+          <h4>Mean Channel Diff</h4>
+          <div class="val">${meanDiff} / 255</div>
+        </div>
+        <div class="summary-card">
+          <h4>Differing Pixels</h4>
+          <div class="val">${diffPct}% (${diffPixelCount.toLocaleString()})</div>
+        </div>
+      `;
+
+      return { isRendered: true, w1, h1, w2, h2, exactPixelMatch, meanDiff, diffPct };
+    }
+
+    // --- 5. Automated Diagnostic Verdict Generator ---
+    function generateVerdict(binary, container, exif, pixel) {
+      const banner = document.getElementById('summary-verdict-banner');
+      const cards = document.getElementById('summary-cards');
+
+      const findings = [];
+
+      // 1. Check Re-encoding
+      let isReencoded = false;
+      if (binary.diffPercent > 50 || (container.type === 'HEIF' && container.boxes1 && container.boxes2)) {
+        // Check mdat diff
+        const b1Mdat = container.boxes1?.find(b => b.type === 'mdat');
+        const b2Mdat = container.boxes2?.find(b => b.type === 'mdat');
+        if (b1Mdat && b2Mdat) {
+          const u8_1 = new Uint8Array(state.buf1);
+          const u8_2 = new Uint8Array(state.buf2);
+          const d1 = u8_1.subarray(b1Mdat.dataStart, b1Mdat.dataEnd);
+          const d2 = u8_2.subarray(b2Mdat.dataStart, b2Mdat.dataEnd);
+          const mdatDiff = calculateDiffPct(d1, d2);
+          if (parseFloat(mdatDiff) > 5) {
+            isReencoded = true;
+          }
+        }
+      }
+
+      if (pixel.isRendered && pixel.exactPixelMatch && isReencoded) {
+        findings.push('⚡ <strong>Identical Decoded Pixels, Repacked HEIF Container:</strong> "Save to Files" repacked the container and compressed media data (`mdat`), resulting in binary differences despite identical decoded visual pixels.');
+      } else if (isReencoded) {
+        findings.push('🔄 <strong>Image Re-encoded:</strong> "Save to Files" re-encoded the compressed image payload and markers.');
+      }
+
+      // 2. Check Timezone / Time Shift
+      const offset1 = exif.tags1['OffsetTime'];
+      const offset2 = exif.tags2['OffsetTime'];
+      if (offset1 && offset2 && offset1 !== offset2) {
+        findings.push(`🕒 <strong>Time Zone Shifted:</strong> "Save to Files" updated EXIF OffsetTime (${offset1} vs ${offset2}).`);
+      }
+
+      // 3. Check Metadata / Thumbnail Stripping
+      if (exif.tags2['EXIF Thumbnail'] && !exif.tags1['EXIF Thumbnail']) {
+        findings.push('✂️ <strong>Thumbnail Stripped:</strong> EXIF JPEG thumbnail was removed in "Save to Files".');
+      }
+      if (exif.tags2['MakerNote'] && !exif.tags1['MakerNote']) {
+        findings.push('📷 <strong>Apple MakerNotes Removed:</strong> Proprietary camera state metadata was stripped.');
+      }
+
+      // 4. Orientation
+      const orient1 = exif.tags1['Orientation'];
+      const orient2 = exif.tags2['Orientation'];
+      if (orient1 && orient2 && orient1 !== orient2) {
+        findings.push(`🔄 <strong>Orientation Baked/Modified:</strong> Orientation tag changed from "${orient2}" to "${orient1}".`);
+      }
+
+      if (findings.length === 0) {
+        if (binary.isIdentical) {
+          banner.innerHTML = '<span style="color:var(--success)">✅ Files are 100% Identical!</span>';
+        } else {
+          banner.innerHTML = '<span style="color:var(--warning)">⚠️ Minor Byte Differences Detected (See table below for details).</span>';
+        }
+      } else {
+        banner.innerHTML = `<span style="color:var(--accent)">Key Diagnostic Findings (${findings.length}):</span>`;
+      }
+
+      cards.innerHTML = findings.map(f => `
+        <div class="summary-card">
+          <p style="font-size:0.9rem;">${f}</p>
+        </div>
+      `).join('');
+    }
+
+    // --- Helpers ---
+    function formatBytes(bytes) {
+      if (bytes === 0) return '0 B';
+      const k = 1024;
+      const sizes = ['B', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    async function computeSHA256(u8) {
+      const hashBuffer = await crypto.subtle.digest('SHA-256', u8);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+  </script>
+</body>
+</html>
