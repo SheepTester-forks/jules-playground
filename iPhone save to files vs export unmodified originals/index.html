@@ -924,17 +924,25 @@
       return tags;
     }
 
+    function isTiffHeader(u8, offset) {
+      if (offset + 4 > u8.length) return false;
+      const isLE = u8[offset] === 0x49 && u8[offset+1] === 0x49 && u8[offset+2] === 0x2A && u8[offset+3] === 0x00;
+      const isBE = u8[offset] === 0x4D && u8[offset+1] === 0x4D && u8[offset+2] === 0x00 && u8[offset+3] === 0x2A;
+      return isLE || isBE;
+    }
+
     function findTiffOffset(u8) {
-      // JPEG APP1 Exif check
-      for (let i = 0; i < u8.length - 8; i++) {
+      // JPEG APP1 / HEIC Exif check: Exif\0\0 followed by valid TIFF header
+      for (let i = 0; i < u8.length - 10; i++) {
         if (u8[i] === 0x45 && u8[i+1] === 0x78 && u8[i+2] === 0x69 && u8[i+3] === 0x66 && u8[i+4] === 0x00 && u8[i+5] === 0x00) {
-          return i + 6;
+          if (isTiffHeader(u8, i + 6)) {
+            return i + 6;
+          }
         }
       }
-      // HEIC or RAW TIFF header search (II*\0 or MM\0*)
+      // Fallback: standalone TIFF header search (II*\0 or MM\0*)
       for (let i = 0; i < u8.length - 8; i++) {
-        if ((u8[i] === 0x49 && u8[i+1] === 0x49 && u8[i+2] === 0x2A && u8[i+3] === 0x00) ||
-            (u8[i] === 0x4D && u8[i+1] === 0x4D && u8[i+2] === 0x00 && u8[i+3] === 0x2A)) {
+        if (isTiffHeader(u8, i)) {
           return i;
         }
       }
