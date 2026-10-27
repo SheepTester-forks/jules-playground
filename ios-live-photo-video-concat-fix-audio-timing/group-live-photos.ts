@@ -3,7 +3,7 @@ import * as path from 'path'
 import * as os from 'os'
 import { execFile, spawn } from 'child_process'
 import { promisify } from 'util'
-import { computeHash, exists, getUniquePath, safeMove } from './utils.ts'
+import { computeHash, exists, getUniquePath, safeMove, getContainerDuration } from './utils.ts'
 
 const execFileAsync = promisify(execFile)
 
@@ -253,6 +253,30 @@ async function main() {
           const sourcePath = path.join(dirPath, file)
           const trimmedPath = path.join(trimmedDir, `trimmed_${i}.mov`)
 
+          // await runCommand('ffmpeg', [
+          //   '-y',
+          //   '-i',
+          //   sourcePath,
+          //   '-filter_complex',
+          //   '[0:v:0]tpad=stop_mode=clone:stop_duration=2,fps=30[v];[0:a:0]apad[a]',
+          //   '-map',
+          //   '[v]',
+          //   '-map',
+          //   '[a]',
+          //   '-t',
+          //   dur.toString(),
+          //   '-c:v',
+          //   'libx264',
+          //   '-preset',
+          //   'fast',
+          //   '-crf',
+          //   '18',
+          //   '-pix_fmt',
+          //   'yuv420p',
+          //   '-c:a',
+          //   'pcm_s16le',
+          //   normPath
+          // ])
           const ffmpegArgs = [
             '-y',
             '-i',
@@ -320,6 +344,7 @@ async function main() {
             console.error(`Error deleting ${file}:`, err)
           })
         }
+        // await fs.rm(normFilesDir, { recursive: true, force: true }).catch(() => {})
         await fs.unlink(concatFilePath).catch(() => {})
       }
     } catch (err) {

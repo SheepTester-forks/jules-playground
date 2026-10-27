@@ -1,6 +1,10 @@
 import * as fs from 'fs/promises'
 import * as path from 'path'
 import * as crypto from 'crypto'
+import { execFile } from 'child_process'
+import { promisify } from 'util'
+
+const execFileAsync = promisify(execFile)
 
 export async function computeHash(filePath: string): Promise<string> {
   const fileBuffer = await fs.readFile(filePath)
@@ -51,4 +55,23 @@ export async function safeMove(
       throw err
     }
   })
+}
+
+export async function getContainerDuration(filePath: string): Promise<number> {
+  const { stdout } = await execFileAsync(
+    'ffprobe',
+    [
+      '-v',
+      'error',
+      '-show_entries',
+      'format=duration',
+      '-of',
+      'json',
+      filePath
+    ],
+    { maxBuffer: 10 * 1024 * 1024 }
+  )
+  const data = JSON.parse(stdout)
+  const dur = parseFloat(data.format?.duration || '0')
+  return isNaN(dur) ? 0 : dur
 }
