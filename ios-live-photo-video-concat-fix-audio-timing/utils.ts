@@ -22,35 +22,39 @@ export async function exists(filePath: string): Promise<boolean> {
   }
 }
 
-export async function getUniquePath(dir: string, fileName: string): Promise<string> {
-  let targetPath = path.join(dir, fileName)
-  if (!(await exists(targetPath))) {
-    return targetPath
+export async function getUniquePath(
+  dir: string,
+  fileName: string
+): Promise<string> {
+  let fullPath = path.join(dir, fileName)
+  if (!(await exists(fullPath))) {
+    return fullPath
   }
 
   const ext = path.extname(fileName)
   const name = path.basename(fileName, ext)
   let counter = 1
 
-  while (await exists(targetPath)) {
-    targetPath = path.join(dir, `${name}_${counter}${ext}`)
+  while (await exists(fullPath)) {
+    fullPath = path.join(dir, `${name}_${counter}${ext}`)
     counter++
   }
 
-  return targetPath
+  return fullPath
 }
 
-export async function safeMove(srcPath: string, dstPath: string): Promise<void> {
-  try {
-    await fs.rename(srcPath, dstPath)
-  } catch (err: any) {
+export async function safeMove(
+  sourcePath: string,
+  destPath: string
+): Promise<void> {
+  await fs.rename(sourcePath, destPath).catch(async err => {
     if (err.code === 'EXDEV') {
-      await fs.copyFile(srcPath, dstPath)
-      await fs.unlink(srcPath)
+      await fs.copyFile(sourcePath, destPath)
+      await fs.unlink(sourcePath)
     } else {
       throw err
     }
-  }
+  })
 }
 
 export async function getContainerDuration(filePath: string): Promise<number> {
