@@ -3,7 +3,7 @@ import * as path from 'path'
 import * as os from 'os'
 import { execFile, spawn } from 'child_process'
 import { promisify } from 'util'
-import { computeHash, exists, getUniquePath, safeMove } from './utils.ts'
+import { computeHash, exists, getUniquePath, safeMove, getContainerDuration } from './utils.ts'
 
 const execFileAsync = promisify(execFile)
 
@@ -226,16 +226,50 @@ async function main() {
         await safeMove(sourcePath, finalPath)
         console.log(`Moved single video to ${finalPath}`)
       } else {
-        let concatContent = ''
-        for (const { file } of groupFiles) {
-          // Escape single quotes in filenames for ffmpeg concat demuxer
-          // The correct syntax for escaping a single quote in a single-quoted string in ffmpeg is:
-          // replace ' with '\''
-          const escapedFileName = file.replace(/'/g, "'\\''")
+        // Normalize clips to ensure exact matching video and audio stream durations before concatenating
+        console.log(`Normalizing group ${groupIndex} clips to fix audio/video timing alignment...`)
+        const normFilesDir = path.join(concatGroupsDir, `norm_group_${groupIndex}`)
+        await fs.mkdir(normFilesDir, { recursive: true })
 
-          // Since the concat file is in a subdirectory (concat_groups),
-          // we need to step back one directory to reference the video files
-          concatContent += `file '../${escapedFileName}'\n`
+        const normalizedFiles: string[] = []
+        for (let i = 0; i < groupFiles.length; i++) {
+          const { file } = groupFiles[i]
+          const sourcePath = path.join(dirPath, file)
+          const normPath = path.join(normFilesDir, `norm_${i}.mov`)
+          const dur = await getContainerDuration(sourcePath)
+
+          // Normalize: extend video last frame to match container duration, pad audio if needed, and constrain to container duration
+          await runCommand('ffmpeg', [
+            '-y',
+            '-i',
+            sourcePath,
+            '-filter_complex',
+            '[0:v:0]tpad=stop_mode=clone:stop_duration=2,fps=30[v];[0:a:0]apad[a]',
+            '-map',
+            '[v]',
+            '-map',
+            '[a]',
+            '-t',
+            dur.toString(),
+            '-c:v',
+            'libx264',
+            '-preset',
+            'fast',
+            '-crf',
+            '18',
+            '-pix_fmt',
+            'yuv420p',
+            '-c:a',
+            'pcm_s16le',
+            normPath
+          ])
+          normalizedFiles.push(normPath)
+        }
+
+        let concatContent = ''
+        for (const normPath of normalizedFiles) {
+          const escapedNormPath = normPath.replace(/'/g, "'\\''")
+          concatContent += `file '${escapedNormPath}'\n`
         }
 
         const concatFilePath = path.join(
@@ -268,12 +302,13 @@ async function main() {
         console.log(`Moved concatenated video to ${finalPath}`)
 
         // Cleanup
-        console.log(`Cleaning up group ${groupIndex} source files...`)
+        console.log(`Cleaning up group ${groupIndex} source files and normalized directory...`)
         for (const { file } of groupFiles) {
           await fs.unlink(path.join(dirPath, file)).catch(err => {
             console.error(`Error deleting ${file}:`, err)
           })
         }
+        await fs.rm(normFilesDir, { recursive: true, force: true }).catch(() => {})
         await fs.unlink(concatFilePath).catch(() => {})
       }
     } catch (err) {
