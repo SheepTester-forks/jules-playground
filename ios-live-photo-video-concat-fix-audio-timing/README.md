@@ -1,3 +1,23 @@
+# Original problem
+
+In ios-live-photo-video-concat-fix-audio-timing/, I've left a script as well as a few sample live photo videos taken on an iPhone. I use the script to concatenate these videos together. However, over dozens of videos (perhaps you can just duplicate them to replicate this), the audio and video get desynced between cuts, and the end of the video ends up being silent.
+
+Deliverables, if successful:
+
+1. A report
+   1. How you replicated the issue to ensure that you can check that the issue is fixed
+   2. A brief, one-sentence description of your fix
+   3. How you validated your fix
+2. A fixed script
+
+Deliverables, if you weren't able to replicate the issue locally or fix it:
+
+1. A report
+   1. What you tried
+   2. Why you don't think it's possible
+
+Do not commit video artifacts into the repo because they can be big.
+
 # Live Photo Video Concat Audio Timing Fix Report
 
 ## How the issue was replicated
