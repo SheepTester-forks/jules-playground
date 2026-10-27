@@ -45,6 +45,7 @@ async function runCommand(command: string, args: string[]): Promise<void> {
 interface MediaProperties {
   propsId: string
   creationTime: Date | null
+  videoDuration: number | null
 }
 
 async function getMediaProperties(filePath: string): Promise<MediaProperties> {
@@ -55,7 +56,7 @@ async function getMediaProperties(filePath: string): Promise<MediaProperties> {
         '-v',
         'error',
         '-show_entries',
-        'stream=codec_type,codec_name,profile,width,height,pix_fmt,color_space,color_transfer,color_primaries,sample_rate,channels:format_tags=creation_time,com.apple.quicktime.creationdate',
+        'stream=codec_type,codec_name,profile,width,height,pix_fmt,color_space,color_transfer,color_primaries,sample_rate,channels,duration:format_tags=creation_time,com.apple.quicktime.creationdate',
         '-of',
         'json',
         filePath
@@ -66,21 +67,32 @@ async function getMediaProperties(filePath: string): Promise<MediaProperties> {
 
     let videoProps = ''
     let audioProps = ''
+    let videoDuration: number | null = null
 
     if (data.streams) {
+      let isFirstVideo = true
       for (const stream of data.streams) {
         if (stream.codec_type === 'video') {
-          videoProps = [
-            stream.codec_name || '',
-            stream.profile || '',
-            stream.width || '',
-            stream.height || '',
-            stream.pix_fmt || '',
-            stream.color_space || '',
-            stream.color_transfer || '',
-            stream.color_primaries || ''
-          ].join('|')
-        } else if (stream.codec_type === 'audio') {
+          if (isFirstVideo) {
+            videoProps = [
+              stream.codec_name || '',
+              stream.profile || '',
+              stream.width || '',
+              stream.height || '',
+              stream.pix_fmt || '',
+              stream.color_space || '',
+              stream.color_transfer || '',
+              stream.color_primaries || ''
+            ].join('|')
+            if (stream.duration) {
+              const dur = parseFloat(stream.duration)
+              if (!isNaN(dur)) {
+                videoDuration = dur
+              }
+            }
+            isFirstVideo = false
+          }
+        } else if (stream.codec_type === 'audio' && !audioProps) {
           audioProps = [
             stream.codec_name || '',
             stream.profile || '',
@@ -106,17 +118,19 @@ async function getMediaProperties(filePath: string): Promise<MediaProperties> {
 
     return {
       propsId: `${videoProps}::${audioProps}`,
-      creationTime
+      creationTime,
+      videoDuration
     }
   } catch (err) {
     console.error(`\nError probing file ${filePath}:`, err)
-    return { propsId: 'error', creationTime: null }
+    return { propsId: 'error', creationTime: null, videoDuration: null }
   }
 }
 
 interface FileWithMetadata {
   file: string
   creationTime: Date | null
+  videoDuration: number | null
 }
 
 async function main() {
@@ -166,7 +180,8 @@ async function main() {
     }
     seenHashes.add(hash)
 
-    const { propsId, creationTime } = await getMediaProperties(fullPath)
+    const { propsId, creationTime, videoDuration } =
+      await getMediaProperties(fullPath)
 
     if (propsId === 'error') {
       console.log(`\nSkipping file ${file} due to probe error.`)
@@ -176,7 +191,7 @@ async function main() {
     if (!fileGroups.has(propsId)) {
       fileGroups.set(propsId, [])
     }
-    fileGroups.get(propsId)!.push({ file, creationTime })
+    fileGroups.get(propsId)!.push({ file, creationTime, videoDuration })
   }
   console.log() // Print a new line after progress indicator finishes
 
@@ -226,16 +241,40 @@ async function main() {
         await safeMove(sourcePath, finalPath)
         console.log(`Moved single video to ${finalPath}`)
       } else {
-        let concatContent = ''
-        for (const { file } of groupFiles) {
-          // Escape single quotes in filenames for ffmpeg concat demuxer
-          // The correct syntax for escaping a single quote in a single-quoted string in ffmpeg is:
-          // replace ' with '\''
-          const escapedFileName = file.replace(/'/g, "'\\''")
+        const trimmedDir = path.join(
+          concatGroupsDir,
+          `trimmed_group_${groupIndex}`
+        )
+        await fs.mkdir(trimmedDir, { recursive: true })
 
-          // Since the concat file is in a subdirectory (concat_groups),
-          // we need to step back one directory to reference the video files
-          concatContent += `file '../${escapedFileName}'\n`
+        const trimmedFiles: string[] = []
+        for (let i = 0; i < groupFiles.length; i++) {
+          const { file, videoDuration } = groupFiles[i]
+          const sourcePath = path.join(dirPath, file)
+          const trimmedPath = path.join(trimmedDir, `trimmed_${i}.mov`)
+
+          const ffmpegArgs = [
+            '-y',
+            '-i',
+            sourcePath,
+            '-map',
+            '0:v:0',
+            '-map',
+            '0:a:0'
+          ]
+          if (videoDuration !== null) {
+            ffmpegArgs.push('-t', videoDuration.toString())
+          }
+          ffmpegArgs.push('-c', 'copy', trimmedPath)
+
+          await runCommand('ffmpeg', ffmpegArgs)
+          trimmedFiles.push(trimmedPath)
+        }
+
+        let concatContent = ''
+        for (const trimmedPath of trimmedFiles) {
+          const escapedPath = trimmedPath.replace(/'/g, "'\\''")
+          concatContent += `file '${escapedPath}'\n`
         }
 
         const concatFilePath = path.join(
@@ -267,8 +306,15 @@ async function main() {
         await safeMove(localOutputPath, finalPath)
         console.log(`Moved concatenated video to ${finalPath}`)
 
-        // Cleanup
-        console.log(`Cleaning up group ${groupIndex} source files...`)
+        // Cleanup intermediate trimmed files and directory
+        console.log(
+          `Cleaning up group ${groupIndex} source and intermediate files...`
+        )
+        for (const trimmedPath of trimmedFiles) {
+          await fs.unlink(trimmedPath).catch(() => {})
+        }
+        await fs.rmdir(trimmedDir).catch(() => {})
+
         for (const { file } of groupFiles) {
           await fs.unlink(path.join(dirPath, file)).catch(err => {
             console.error(`Error deleting ${file}:`, err)
