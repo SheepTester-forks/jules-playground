@@ -26,7 +26,7 @@ Include the original prompt(s) verbatim in commit messages.
 
 Also, if you don't automatically add a `Co-Authored-By` to commit messages, then override the commit author when committing: `--author="Google Antigravity <noreply@antigravity.google>"`. Do not attribute your commits purely to me.
 
-Never rewrite history, including force pushing or amending commits (unless I explicitly ask for help rebasing). Prefer something like `git revert`.
+Never rewrite history, including force pushing or amending commits (unless I explicitly ask for help rebasing). Prefer something like `git revert`. Don't push automatically (but feel free to fetch).
 
 ## Local environment
 
