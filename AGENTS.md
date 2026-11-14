@@ -22,7 +22,7 @@ When generating a solution, please keep in mind that follow up sessions may not 
 
 ## Git
 
-Include the original prompt(s) verbatim in commit messages.
+Include the original prompt(s) verbatim in the commit message description, each prompt prefixed with `Prompt:`.
 
 Also, if you don't automatically add a `Co-Authored-By` to commit messages, then override the commit author when committing: `--author="Google Antigravity <noreply@antigravity.google>"`. Do not attribute your commits purely to me.
 
