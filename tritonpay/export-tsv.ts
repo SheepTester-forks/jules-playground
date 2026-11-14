@@ -122,8 +122,8 @@ async function main() {
     // Verbatim columns as extracted from the PDF without transformations
     headers = [
       'Source Statement',
-      'Statement Date',
-      'Due Date',
+      // 'Statement Date',
+      // 'Due Date',
       'Date Posted',
       'Term',
       'Description',
@@ -135,8 +135,8 @@ async function main() {
     for (const tx of transactions) {
       const row = [
         tx.sourceStatement,
-        tx.rawStatementDate,
-        tx.rawDueDate || tx.dueDate,
+        // tx.rawStatementDate,
+        // tx.rawDueDate || tx.dueDate,
         tx.rawDatePosted,
         tx.term,
         tx.description,

@@ -5,7 +5,8 @@ Tooling for extracting and verifying UCSD TritonPay billing statements from PDF 
 ## Quick Start
 
 ```bash
-cd tritonpay
+cd tritonpay/
+
 npm install
 
 # Export statements to statements.tsv and verify all balances:
@@ -22,7 +23,7 @@ npm run verify
 
 - **`export-tsv.ts`** (`npm run export`):
   Parses all PDF statements from the statements directory (default `/mnt/c/Users/seant/Downloads/tritonpay statements`), verifies intra-statement and inter-statement balances, and writes tab-delimited records to `statements.tsv`.
-  
+
   Options:
   - `--input <dir>`: Custom PDF statements directory
   - `--output <path>`: Custom output TSV path (default `./statements.tsv`)
@@ -44,6 +45,7 @@ npm run verify
 ## TSV Output Schema
 
 `statements.tsv` (gitignored per project instructions) contains:
+
 - `Source Statement`: Name of the source PDF file
 - `Statement Date`: Statement date (YYYY-MM-DD)
 - `Due Date`: Due date (YYYY-MM-DD)
