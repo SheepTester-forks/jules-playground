@@ -171,7 +171,53 @@ Across all 147 transactions, the funds categorize into the following major compo
 
 ---
 
-## 6. How to Reproduce and Verify
+## 6. Filename Anatomy vs. Statement Date and Due Date
+
+Each statement filename follows the schema:
+```
+UCSD Statement [Historical Bill Import-]<Due_MM>_<Due_DD>_<Due_YYYY>-<Suffix_MMDDYY>.pdf
+```
+
+### Key Findings:
+1. **Due Date:** **100% Exact Match (21 of 21 files)**.
+   The primary date in the filename (`MM_DD_YYYY`) **always matches the PDF's `Due Date` exactly**.
+   - Example: `UCSD Statement  01_19_2024-010424.pdf` $\rightarrow$ Due Date: `01/19/2024`
+   - Example: `UCSD Statement  Historical Bill Import-09_23_2022-122023.pdf` $\rightarrow$ Due Date: `09/23/2022`
+
+2. **Statement Date:** **Never matches the filename exactly (0 of 21 files)**.
+   The trailing suffix (`-<MMDDYY>`) represents the system generation / batch export timestamp rather than the billing cycle statement date:
+   - **Modern Statements (2024–2025, 12 files):** In 11 of 12 files, the suffix date is **exactly 1 day after the Statement Date** (e.g. Statement Date `01/03/2024` with suffix `-010424` for Jan 4, 2024; Statement Date `01/02/2025` with suffix `-010325` for Jan 3, 2025). One file (`04_19_2024-041524.pdf`) was generated on `04/15/2024` for a Statement Date of `04/02/2024`.
+   - **Historical Imports (2022–2023, 9 files):** The suffix is `-122023` (Dec 20, 2023) or `-122123` (Dec 21, 2023), representing the batch date when UCSD migrated legacy billing records into the modern TritonPay platform.
+
+### Complete Comparison Table:
+
+| Source Filename | Filename Due Date | PDF Due Date | Due Match? | Filename Suffix | PDF Statement Date | Statement Match? | Notes |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :--- |
+| `Historical Bill Import-09_23_2022-122023.pdf` | 09/23/2022 | 09/23/2022 | **YES** | 12/20/2023 | 09/07/2022 | No | Historical import batch |
+| `Historical Bill Import-10_21_2022-122023.pdf` | 10/21/2022 | 10/21/2022 | **YES** | 12/20/2023 | 10/03/2022 | No | Historical import batch |
+| `Historical Bill Import-12_16_2022-122023.pdf` | 12/16/2022 | 12/16/2022 | **YES** | 12/20/2023 | 12/01/2022 | No | Historical import batch |
+| `Historical Bill Import-01_20_2023-122023.pdf` | 01/20/2023 | 01/20/2023 | **YES** | 12/20/2023 | 01/03/2023 | No | Historical import batch |
+| `Historical Bill Import-03_24_2023-122023.pdf` | 03/24/2023 | 03/24/2023 | **YES** | 12/20/2023 | 03/01/2023 | No | Historical import batch |
+| `Historical Bill Import-04_21_2023-122023.pdf` | 04/21/2023 | 04/21/2023 | **YES** | 12/20/2023 | 04/03/2023 | No | Historical import batch |
+| `09_25_2023-122023.pdf` | 09/25/2023 | 09/25/2023 | **YES** | 12/20/2023 | 09/05/2023 | No | Historical import batch |
+| `10_20_2023-122023.pdf` | 10/20/2023 | 10/20/2023 | **YES** | 12/20/2023 | 10/02/2023 | No | Historical import batch |
+| `12_15_2023-122123.pdf` | 12/15/2023 | 12/15/2023 | **YES** | 12/21/2023 | 12/01/2023 | No | Historical import batch |
+| `01_19_2024-010424.pdf` | 01/19/2024 | 01/19/2024 | **YES** | 01/04/2024 | 01/03/2024 | No | Generated +1 day later |
+| `03_22_2024-030524.pdf` | 03/22/2024 | 03/22/2024 | **YES** | 03/05/2024 | 03/04/2024 | No | Generated +1 day later |
+| `04_19_2024-041524.pdf` | 04/19/2024 | 04/19/2024 | **YES** | 04/15/2024 | 04/02/2024 | No | Generated 04/15/2024 |
+| `09_20_2024-090524.pdf` | 09/20/2024 | 09/20/2024 | **YES** | 09/05/2024 | 09/04/2024 | No | Generated +1 day later |
+| `10_18_2024-100224.pdf` | 10/18/2024 | 10/18/2024 | **YES** | 10/02/2024 | 10/01/2024 | No | Generated +1 day later |
+| `11_15_2024-110224.pdf` | 11/15/2024 | 11/15/2024 | **YES** | 11/02/2024 | 11/01/2024 | No | Generated +1 day later |
+| `12_20_2024-120324.pdf` | 12/20/2024 | 12/20/2024 | **YES** | 12/03/2024 | 12/02/2024 | No | Generated +1 day later |
+| `01_24_2025-010325.pdf` | 01/24/2025 | 01/24/2025 | **YES** | 01/03/2025 | 01/02/2025 | No | Generated +1 day later |
+| `02_21_2025-020525.pdf` | 02/21/2025 | 02/21/2025 | **YES** | 02/05/2025 | 02/04/2025 | No | Generated +1 day later |
+| `03_21_2025-030525.pdf` | 03/21/2025 | 03/21/2025 | **YES** | 03/05/2025 | 03/04/2025 | No | Generated +1 day later |
+| `04_18_2025-040225.pdf` | 04/18/2025 | 04/18/2025 | **YES** | 04/02/2025 | 04/01/2025 | No | Generated +1 day later |
+| `07_28_2025-070225.pdf` | 07/28/2025 | 07/28/2025 | **YES** | 07/02/2025 | 07/01/2025 | No | Generated +1 day later |
+
+---
+
+## 7. How to Reproduce and Verify
 
 From the repository root:
 
