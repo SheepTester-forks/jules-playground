@@ -2,9 +2,9 @@
 
 ## 1. Executive Summary
 
-This report documents the parsing, conversion, and mathematical verification of **21 UCSD TritonPay billing statement PDFs** spanning from **September 2022 to July 2025**. 
+This report documents the parsing, structural analysis, and mathematical verification of **21 UCSD TritonPay billing statement PDFs** spanning from **September 2022 to July 2025**. 
 
-The statements were parsed into a structured, tab-separated values (TSV) dataset saved to `statements.tsv`. In accordance with user instructions, `statements.tsv` is gitignored (`tritonpay/.gitignore`).
+The statements were parsed into a structured, tab-separated values (TSV) dataset saved to `statements.tsv` (and optional raw TSV `statements_raw.tsv`). In accordance with project instructions, all generated TSV files are gitignored (`tritonpay/.gitignore`).
 
 ### Key Highlights:
 - **Total Statements Parsed:** 21 PDF files
@@ -18,56 +18,107 @@ The statements were parsed into a structured, tab-separated values (TSV) dataset
 
 ---
 
-## 2. Dataset Schema & TSV Format
+## 2. Column Provenance: Verbatim vs. Normalized vs. Derived
 
-The generated TSV file (`statements.tsv`) contains the following columns:
+Except for `Source Statement`, the columns in the TSV originate from the PDF statement elements as follows:
 
-| Column | Type | Description | Example |
+| TSV Column | Source in PDF | Classification | Transformation Details |
 | :--- | :--- | :--- | :--- |
-| `Source Statement` | string | Filename of the source statement PDF | `UCSD Statement  01_19_2024-010424.pdf` |
-| `Statement Date` | ISO Date (YYYY-MM-DD) | Date the billing statement was issued | `2024-01-03` |
-| `Due Date` | ISO Date (YYYY-MM-DD) | Payment due date | `2024-01-19` |
-| `Date Posted` | ISO Date (YYYY-MM-DD) | Transaction posting date | `2023-12-13` |
-| `Term` | string | Academic term (or blank if unassigned) | `Winter24` |
-| `Description` | string | Full transaction description | `E-Check Payment T10315701` |
-| `Charges` | numeric (2 decimals) | Billed debit amount (or [REMOVED] if credit) | `[REMOVED]` |
-| `Credits` | numeric (2 decimals) | Credit / payment / waiver amount (or [REMOVED] if charge) | `[REMOVED]` |
-| `Amount` | numeric (2 decimals) | Signed transaction amount (+ for charge, - for credit) | `-[REMOVED]` |
-| `Running Balance` | numeric (2 decimals) | Cumulative account balance after this transaction | `[REMOVED]` |
+| `Source Statement` | N/A (Filename) | **Derived / Added** | Injected filename per prompt instructions (e.g. `UCSD Statement  01_19_2024-010424.pdf`). |
+| `Statement Date` | `STATEMENT SUMMARY` box & Page Footer | **Normalized** | Formatted as `MM/DD/YYYY` in the PDF (e.g., `01/03/2024`). Normalized to ISO `YYYY-MM-DD` (`2024-01-03`) in default mode, or left verbatim in `--raw` mode. |
+| `Due Date` | `STATEMENT SUMMARY` box | **Normalized** | Formatted as `MM/DD/YYYY` (or prefixed with `Historical Bill Import-01/20/2023`). Stripped of prefix and normalized to ISO `YYYY-MM-DD` (`2024-01-19`) in default mode, or left verbatim in `--raw` mode. |
+| `Date Posted` | `Statement Details` table row | **Normalized** | Formatted as `MM/DD/YYYY` in the PDF (e.g., `12/13/2023`). Normalized to ISO `YYYY-MM-DD` (`2023-12-13`) in default mode, or left verbatim in `--raw` mode. |
+| `Term` | `Statement Details` table row | **VERBATIM** | Exact string from the PDF's `Term` column (e.g. `Fall24`, `Winter25`, `Spring23`). Empty string `""` when omitted in the PDF (e.g., electronic check payments or general fee adjustments). |
+| `Description` | `Statement Details` table row | **VERBATIM** | Exact string from the PDF's `Description` column (e.g., `E-Check Payment T10315701`, `TUITION FALL`, `GRAD HEALTH INS FEE WAIVER`). |
+| `Charges` | `Statement Details` table row | **Normalized** | In the PDF, charges appear as right-aligned dollar strings with symbols and commas (e.g., `$[REMOVED]`). Credit rows have a blank cell under Charges. Normalized to 2-decimal numeric float (`[REMOVED]`, or `[REMOVED]` if blank) to prevent script errors. Preserved as raw `$X,XXX.XX` or blank cell in `--raw` mode. |
+| `Credits` | `Statement Details` table row | **Normalized** | In the PDF, credits appear as right-aligned dollar strings with symbols and commas (e.g., `$[REMOVED]`). Charge rows have a blank cell under Credits. Normalized to 2-decimal numeric float (`[REMOVED]`, or `[REMOVED]` if blank). Preserved as raw `$X,XXX.XX` or blank cell in `--raw` mode. |
+| `Amount` | Computed from Charges & Credits | **Derived / Synthetic** | **Not present in the PDF table.** Calculated as $+\text{Charges} - \text{Credits}$ to provide a unified signed net ledger value. Omitted in `--raw` mode. |
+| `Running Balance` | Computed from Cumulative Ledger | **Derived / Synthetic** | **Not present in the PDF table.** Cumulative account balance calculated transaction-by-transaction across all 21 statements. Omitted in `--raw` mode. |
 
 ---
 
-## 3. Implementation Details
+## 3. PDF Statement Visual & Physical Structure
 
-### Architecture & Extraction Methodology
-The parser was implemented in TypeScript (`parser.ts`, `export-tsv.ts`, `verify-parse.ts`) and runs directly on Node.js 26+ without transpilation (`node script.ts`).
+Each UCSD TritonPay statement PDF conforms to a standardized multi-section layout. Below is the structural layout map:
 
-1. **PDF Tokenization & Geometry Awareness:**
-   UCSD TritonPay statements use tabular layouts where the column header defines the coordinate boundaries:
-   - `Date Posted`: centered around horizontal coordinate $x \approx 87.3$
-   - `Term`: horizontal coordinate $x \approx 157.9$
-   - `Description`: spans $x \in [220, 450)$
-   - `Charges`: right-aligned numbers with $x \in [460, 505)$
-   - `Credits`: right-aligned numbers with $x \ge 510$
-   
-   Relying on positional coordinates ensures that charges and credits are never conflated, even when descriptions wrap or terms are omitted (such as electronic payments or campus fee reversals).
+### Page 1 Layout Schematic
 
-2. **Multi-Page Handling:**
-   While most statements are 2 pages (Page 1 = Details + Summary, Page 2 = Billing Instructions), multi-page statements such as `UCSD Statement  Historical Bill Import-09_23_2022-122023.pdf` span 3 pages. The parser processes transaction tables across all continuation pages before the footer and totals.
+```
++---------------------------------------------------------------------------------------------------------+
+| [INSTITUTION & STUDENT HEADER]                          [STATEMENT SUMMARY BOX]                         |
+| UC San Diego                                            STATEMENT SUMMARY                               |
+| Student Financial Solutions                             Statement Date       01/03/2024                 |
+| 9500 Gilman Drive                                       Due Date             01/19/2024                 |
+| La Jolla, CA 92093-0026                                 Student ID (PID)     A16948219                  |
+| sfs.ucsd.edu 858-822-4727                               Previous Account Balance  $[REMOVED]            |
+|                                                         Current Account Balance  -$[REMOVED]            |
+| Yen, Sean                                               TOTAL DUE                 $[REMOVED]                 |
+|                                                                                                         |
+| Total Amount Due                  $[REMOVED]                 [REMITTANCE ADDRESS BOX]                        |
+|                                                         Make checks payable to: UC Regents              |
+|                                                         and mail with top portion of your bill to:      |
+|                                                         UC San Diego Cashier's Office                   |
+|                                                         Attn: TritonPay Payment                         |
+|                                                         9500 Gilman Drive, 0009                         |
+|                                                         La Jolla, CA 92093-0009                         |
++---------------------------------------------------------------------------------------------------------+
+| [IMPORTANT NOTICE BANNER]                                                                               |
+| IMPORTANT MESSAGE                                                                                       |
+| AMOUNTS SHOWN IN THIS BILL REPRESENT FEES AS CURRENTLY APPROVED FOR THIS ACADEMIC YEAR. HOWEVER, ALL    |
+| UNIVERSITY FEES ARE SUBJECT TO CHANGE AND THE FEE AMOUNTS BILLED FOR THIS PERIOD MAY BE ADJUSTED...     |
++---------------------------------------------------------------------------------------------------------+
+| [STATEMENT DETAILS TABLE]                                                                               |
+| Statement Details                                                                                       |
+| Date Posted      Term        Description                                    Charges          Credits    |
+| ------------------------------------------------------------------------------------------------------- |
+| PREVIOUS ACCOUNT BALANCE                                                  $[REMOVED]                     |
+| Current Activity                                                                                        |
+| 12/13/2023                   E-Check Payment T10315701                                     $[REMOVED]    |
+| 12/13/2023                   E-Check Payment T10315702                                        $[REMOVED]    |
+| CURRENT ACCOUNT BALANCE                                                  -$[REMOVED]                     |
++---------------------------------------------------------------------------------------------------------+
+| [PAGE FOOTER]                                                                                           |
+| Name: Yen, Sean                   Student ID: A16948219                   Statement Date: 01/03/2024    |
+|                                         -- 1 of 2 --                                                    |
++---------------------------------------------------------------------------------------------------------+
+```
 
-3. **Numeric Robustness:**
-   Amounts are formatted as `[REMOVED]` rather than blank strings to prevent `ValueError` in Python `float()` conversions or `NaN` in JavaScript arithmetic, while the signed `Amount` column simplifies ledger aggregation.
+### Table Coordinate Layout & Column Segmentation
+
+In PDF points ($72 \text{ pt} = 1 \text{ in}$, coordinate origin $(0,0)$ at bottom-left corner of the page):
+
+| Table Column | Label Position $(x)$ | Value Range $(x)$ | Alignment | Extraction Rule |
+| :--- | :---: | :---: | :---: | :--- |
+| **Date Posted** | $x \approx 87.3$ | $x \in [80, 110]$ | Left | Matches regex `^\d{2}/\d{2}/\d{4}$`. Marks beginning of transaction row. |
+| **Term** | $x \approx 157.9$ | $x \in [145, 180]$ | Left | Token immediately following Date Posted if before $x = 200$. Empty if none. |
+| **Description** | $x \approx 225.9$ | $x \in [220, 450)$ | Left | All text elements between $x=200$ and $x=450$. |
+| **Charges** | $x \approx 463.5$ | $x \in [460, 505)$ | Right | Number string right-aligned around $x \approx 500$ (e.g. starts $465.0 - 480.9$). |
+| **Credits** | $x \approx 516.1$ | $x \ge 510$ | Right | Number string right-aligned around $x \approx 550$ (e.g. starts $514.2 - 534.7$). |
+
+### Special Rows in the Table:
+1. **`PREVIOUS ACCOUNT BALANCE`**: Positioned directly under column headers at $y \approx 418.6$, with amount in the Charges/Balance column.
+2. **`Current Activity`**: Section header separating previous balance from new line items at $y \approx 400.3$.
+3. **`CURRENT ACCOUNT BALANCE`**: Positioned directly below the transaction rows, indicating the net sum of current activity ($\text{Charges} - \text{Credits}$).
+
+### Multi-Page Structure & Continuation Rules:
+- **Standard 2-Page Statements (20 of 21 files):**
+  - **Page 1:** Full billing statement (Header, Statement Summary, Details Table, Current Activity, Total Due, and Footer).
+  - **Page 2:** Static billing instructions and institutional explanations (`BILLING STATEMENT INSTRUCTIONS`, `EXPLANATION OF STATEMENT`, `IMPORTANT ACCOUNT INFORMATION`, `BILLING STATEMENT INQUIRIES`, `LEAVE OF ABSENCE / WITHDRAWAL POLICY`).
+- **3-Page Statements (e.g. `Historical Bill Import-09_23_2022-122023.pdf`):**
+  - **Page 1:** Header, Statement Summary, Details Table with initial 21 transactions down to $y \approx 52$.
+  - **Page 2:** Continues transaction table from top of page ($y \approx 767$) with remaining 7 transactions, followed by `CURRENT ACCOUNT BALANCE`, `Total Amount Due`, and footer.
+  - **Page 3:** Static billing instructions and explanations.
 
 ---
 
 ## 4. Statement-by-Statement Balance Audit
 
-Every statement was verified against two strict accounting equations:
+Every statement was verified against three strict accounting equations:
 1. **Intrastatement Current Activity Balance:**
    $$\sum \text{Charges} - \sum \text{Credits} = \text{Current Account Balance}$$
 2. **Intrastatement Total Due:**
    $$\text{Previous Account Balance} + \text{Current Account Balance} = \text{TOTAL DUE}$$
-3. **Interstatement Continuity:**
+3. **Interstatement Chronological Continuity:**
    $$\text{TOTAL DUE}_{N} = \text{Previous Account Balance}_{N+1}$$
 
 ### Full Statement Audit Log:
@@ -125,11 +176,15 @@ Across all 147 transactions, the funds categorize into the following major compo
 From the repository root:
 
 ```bash
-# 1. Regenerate statements.tsv
 cd tritonpay
+
+# 1. Regenerate standard normalized TSV (statements.tsv):
 npm run export
 
-# 2. Run the automated verification suite
+# 2. Or generate verbatim/raw TSV (statements_raw.tsv):
+npm run export -- --raw --output statements_raw.tsv
+
+# 3. Run the automated verification suite:
 npm run verify
 ```
 

@@ -10,6 +10,7 @@ interface ExportOptions {
   inputDir: string;
   outputFile: string;
   verify: boolean;
+  raw: boolean;
 }
 
 function parseArgs(): ExportOptions {
@@ -17,6 +18,7 @@ function parseArgs(): ExportOptions {
   let inputDir = '/mnt/c/Users/seant/Downloads/tritonpay statements';
   let outputFile = path.join(__dirname, 'statements.tsv');
   let verify = true;
+  let raw = false;
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--input' && args[i + 1]) {
@@ -25,31 +27,24 @@ function parseArgs(): ExportOptions {
       outputFile = args[++i];
     } else if (args[i] === '--no-verify') {
       verify = false;
+    } else if (args[i] === '--raw' || args[i] === '--verbatim') {
+      raw = true;
     } else if (!args[i].startsWith('--')) {
       inputDir = args[i];
     }
   }
 
-  return { inputDir, outputFile, verify };
+  return { inputDir, outputFile, verify, raw };
 }
 
 function formatCurrency(val: number): string {
   return (val < 0 ? '-$' : '$') + Math.abs(val).toFixed(2);
 }
 
-function toIsoDate(dateStr: string): string {
-  const parts = dateStr.split('/');
-  if (parts.length === 3) {
-    const [m, d, y] = parts;
-    return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
-  }
-  return dateStr;
-}
-
 async function main() {
   const options = parseArgs();
   console.log(`Reading statements from: ${options.inputDir}`);
-  console.log(`Writing TSV output to:   ${options.outputFile}`);
+  console.log(`Writing TSV output to:   ${options.outputFile} (mode: ${options.raw ? 'raw/verbatim' : 'standard/normalized'})`);
 
   if (!fs.existsSync(options.inputDir)) {
     console.error(`Input directory does not exist: ${options.inputDir}`);
@@ -120,35 +115,67 @@ async function main() {
   }
 
   // Generate TSV
-  const headers = [
-    'Source Statement',
-    'Statement Date',
-    'Due Date',
-    'Date Posted',
-    'Term',
-    'Description',
-    'Charges',
-    'Credits',
-    'Amount',
-    'Running Balance',
-  ];
+  let headers: string[];
+  const rows: string[] = [];
 
-  const rows: string[] = [headers.join('\t')];
-
-  for (const tx of transactions) {
-    const row = [
-      tx.sourceStatement,
-      toIsoDate(tx.statementDate),
-      toIsoDate(tx.dueDate),
-      toIsoDate(tx.datePosted),
-      tx.term,
-      tx.description,
-      tx.charge > 0 ? tx.charge.toFixed(2) : '0.00',
-      tx.credit > 0 ? tx.credit.toFixed(2) : '0.00',
-      tx.amount.toFixed(2),
-      tx.runningBalance.toFixed(2),
+  if (options.raw) {
+    // Verbatim columns as extracted from the PDF without transformations
+    headers = [
+      'Source Statement',
+      'Statement Date',
+      'Due Date',
+      'Date Posted',
+      'Term',
+      'Description',
+      'Charges',
+      'Credits',
     ];
-    rows.push(row.join('\t'));
+    rows.push(headers.join('\t'));
+
+    for (const tx of transactions) {
+      const row = [
+        tx.sourceStatement,
+        tx.rawStatementDate,
+        tx.rawDueDate || tx.dueDate,
+        tx.rawDatePosted,
+        tx.term,
+        tx.description,
+        tx.rawCharge,
+        tx.rawCredit,
+      ];
+      rows.push(row.join('\t'));
+    }
+  } else {
+    // Standard normalized columns with numeric amounts and running balance
+    headers = [
+      'Source Statement',
+      'Statement Date',
+      'Due Date',
+      'Date Posted',
+      'Term',
+      'Description',
+      'Charges',
+      'Credits',
+      'Amount',
+      'Running Balance',
+    ];
+    rows.push(headers.join('\t'));
+
+    for (const tx of transactions) {
+      const row = [
+        tx.sourceStatement,
+        tx.statementDate,
+        tx.dueDate,
+        tx.datePosted,
+        tx.term,
+        tx.description,
+        tx.charge > 0 ? tx.charge.toFixed(2) : '0.00',
+        tx.credit > 0 ? tx.credit.toFixed(2) : '0.00',
+        tx.amount.toFixed(2),
+        tx.runningBalance.toFixed(2),
+      ];
+      rows.push(row.join('\t'));
+    }
   }
 
   fs.writeFileSync(options.outputFile, rows.join('\n') + '\n', 'utf-8');

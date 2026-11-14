@@ -2,15 +2,20 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { PDFParse } from 'pdf-parse';
 
-interface Tx {
+export interface Tx {
   sourceStatement: string;
   statementDate: string;
   dueDate: string;
+  rawStatementDate: string;
+  rawDueDate: string;
   datePosted: string;
+  rawDatePosted: string;
   term: string;
   description: string;
   charge: number;
   credit: number;
+  rawCharge: string;
+  rawCredit: string;
   amount: number;
   runningBalance: number;
 }
@@ -18,6 +23,15 @@ interface Tx {
 function parseCurrency(str: string): number {
   const clean = str.replace(/[$,\s]/g, '');
   return parseFloat(clean);
+}
+
+function toIsoDate(dateStr: string): string {
+  const parts = dateStr.split('/');
+  if (parts.length === 3) {
+    const [m, d, y] = parts;
+    return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+  }
+  return dateStr;
 }
 
 export async function parseAllStatements(dir: string): Promise<{ statements: any[]; transactions: Tx[] }> {
@@ -32,6 +46,8 @@ export async function parseAllStatements(dir: string): Promise<{ statements: any
 
     let statementDate = '';
     let dueDate = '';
+    let rawStatementDate = '';
+    let rawDueDate = '';
     let studentId = '';
     let studentName = '';
     let previousBalance = 0;
@@ -48,12 +64,15 @@ export async function parseAllStatements(dir: string): Promise<{ statements: any
         for (let i = 0; i < items.length; i++) {
           const str = items[i].str.trim();
           if (str === 'Statement Date' && items[i + 1]) {
-            statementDate = items[i + 1].str.trim();
+            rawStatementDate = items[i + 1].str.trim();
+            statementDate = toIsoDate(rawStatementDate);
           } else if (str === 'Due Date') {
             for (let j = i + 1; j < Math.min(i + 4, items.length); j++) {
-              const m = items[j].str.match(/\d{2}\/\d{2}\/\d{4}/);
+              const text = items[j].str.trim();
+              const m = text.match(/\d{2}\/\d{2}\/\d{4}/);
               if (m) {
-                dueDate = m[0];
+                rawDueDate = text;
+                dueDate = toIsoDate(m[0]);
                 break;
               }
             }
@@ -85,11 +104,14 @@ export async function parseAllStatements(dir: string): Promise<{ statements: any
         row.items.sort((a, b) => a.transform[4] - b.transform[4]);
         const first = row.items[0];
         if (first && Math.abs(first.transform[4] - 87.3) < 10 && /^\d{2}\/\d{2}\/\d{4}$/.test(first.str)) {
-          const datePosted = first.str.trim();
+          const rawDatePosted = first.str.trim();
+          const datePosted = toIsoDate(rawDatePosted);
           let term = '';
           const descParts: string[] = [];
           let charge = 0;
           let credit = 0;
+          let rawCharge = '';
+          let rawCredit = '';
 
           for (let idx = 1; idx < row.items.length; idx++) {
             const it = row.items[idx];
@@ -101,8 +123,10 @@ export async function parseAllStatements(dir: string): Promise<{ statements: any
             } else if (x < 450) {
               descParts.push(s);
             } else if (x >= 450 && x < 510) {
+              rawCharge = s;
               charge = parseCurrency(s);
             } else if (x >= 510) {
+              rawCredit = s;
               credit = parseCurrency(s);
             }
           }
@@ -114,11 +138,16 @@ export async function parseAllStatements(dir: string): Promise<{ statements: any
             sourceStatement: file,
             statementDate,
             dueDate,
+            rawStatementDate,
+            rawDueDate,
             datePosted,
+            rawDatePosted,
             term,
             description,
             charge,
             credit,
+            rawCharge,
+            rawCredit,
             amount,
           });
         }
@@ -130,6 +159,8 @@ export async function parseAllStatements(dir: string): Promise<{ statements: any
       file,
       statementDate,
       dueDate,
+      rawStatementDate,
+      rawDueDate,
       studentId,
       studentName,
       previousBalance,
