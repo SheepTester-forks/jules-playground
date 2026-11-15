@@ -1,0 +1,15 @@
+{
+  "name": "pay-statements",
+  "version": "1.0.0",
+  "description": "Parser, TSV exporter, and mathematical verifier for UC and TikTok pay statements",
+  "main": "export-tsv.ts",
+  "type": "module",
+  "scripts": {
+    "start": "node export-tsv.ts",
+    "export": "node export-tsv.ts",
+    "verify": "node verify.ts"
+  },
+  "dependencies": {
+    "pdf-parse": "^2.4.5"
+  }
+}
